@@ -55,7 +55,7 @@ namespace DungeonCrawler
             player = playerGO.AddComponent<PlayerCharacter>();
             playerInventory = playerGO.AddComponent<Inventory.InventorySystem>();
             player.inventory = playerInventory; // was never actually wired up before -- nothing read it, but it's the documented hook for exactly this kind of lookup
-            playerGO.transform.position = hubEntryPoint;
+            TeleportPlayer(hubEntryPoint);
 
             ClassDefinition def = classToTest switch
             {
@@ -162,9 +162,12 @@ namespace DungeonCrawler
             alchemistStock.RemoveAll(s => s.item == null);
             blacksmithStock.RemoveAll(s => s.item == null);
             curiosityStock.RemoveAll(s => s.item == null);
+            Debug.Log($"[Bootstrap] WireVendors: pool={pool.Count}, alchemist={alchemistStock.Count}, blacksmith={blacksmithStock.Count}, curiosities={curiosityStock.Count}");
 
+            int vendorCount = 0;
             foreach (var vendor in FindObjectsOfType<VendorNPC>())
             {
+                vendorCount++;
                 vendor.stock = vendor.vendorName switch
                 {
                     "Alchemist" => alchemistStock.ToArray(),
@@ -172,12 +175,14 @@ namespace DungeonCrawler
                     "Curiosities" => curiosityStock.ToArray(),
                     _ => new ShopStock[0],
                 };
+                Debug.Log($"[Bootstrap] Vendor '{vendor.vendorName}' wired with {vendor.stock.Length} stock entries");
 
                 var interactable = vendor.GetComponent<Interactable>();
                 if (interactable == null) continue;
                 var v = vendor; // capture per-iteration value, not the loop variable
                 interactable.onInteract = () => ShopUI.Show(v, playerInventory, wallet);
             }
+            Debug.Log($"[Bootstrap] WireVendors found {vendorCount} VendorNPC(s) in the scene");
         }
 
         // Wires the tavern's gambling table and the fairground's claw machine, the two
@@ -239,7 +244,7 @@ namespace DungeonCrawler
             layout.Build(theme);
             Debug.Log($"[Bootstrap] {rootName} layout built OK -- EntryPoint {layout.EntryPoint}");
 
-            playerGO.transform.position = layout.EntryPoint;
+            TeleportPlayer(layout.EntryPoint);
 
             // Dungeon-only atmosphere -- RenderSettings.fog is scene-global, not per-object,
             // so it has to be toggled here rather than baked into DungeonLayout itself
@@ -407,7 +412,7 @@ namespace DungeonCrawler
 
         private void ReturnToHub()
         {
-            playerGO.transform.position = hubEntryPoint;
+            TeleportPlayer(hubEntryPoint);
             RenderSettings.fog = false;
         }
 
@@ -419,8 +424,24 @@ namespace DungeonCrawler
         {
             player.health.Revive(0.5f);
             if (player.mana != null) player.mana.SetMax(player.mana.maxMP, refill: true);
-            playerGO.transform.position = hubEntryPoint;
+            TeleportPlayer(hubEntryPoint);
             RenderSettings.fog = false;
+        }
+
+        // A CharacterController's internal collision state can lag one frame behind a
+        // direct Transform.position write -- PlayerMovement's Update() now calls
+        // controller.Move() unconditionally every frame (needed so gravity keeps applying
+        // while standing still), and that very next Move() call was silently sweeping from
+        // the controller's stale pre-teleport position, snapping the player back toward
+        // where they started. Disabling the controller for the write and re-enabling it
+        // forces Unity to resync its internal state to the new position first -- the
+        // standard fix for this exact CharacterController + manual teleport interaction.
+        private void TeleportPlayer(Vector3 pos)
+        {
+            var controller = playerGO.GetComponent<CharacterController>();
+            if (controller != null) controller.enabled = false;
+            playerGO.transform.position = pos;
+            if (controller != null) controller.enabled = true;
         }
 
         private void SpawnImp(Vector3 pos, bool spiked)

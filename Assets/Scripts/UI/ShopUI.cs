@@ -132,16 +132,21 @@ namespace DungeonCrawler.UI
             // stock tops out around 8 rows, but Sell mode can list up to a full 20-slot
             // inventory, which would otherwise spill silently off the bottom of the panel
             // with no way to reach the rest.
-            var scrollGO = new GameObject("RowsScroll", typeof(RectTransform), typeof(Image), typeof(Mask), typeof(ScrollRect));
+            //
+            // RectMask2D, not Mask+Image: Mask clips via an alpha test on its Graphic, and
+            // the near-invisible background color this used (alpha 0.001, to stay
+            // invisible) sat right at or under Unity's alpha-clip threshold -- clipping
+            // every row regardless of content, which is exactly what made every vendor's
+            // stock (and the Sell tab's own inventory list) look empty. RectMask2D clips by
+            // rect bounds alone, needs no Graphic and no alpha, and is what Unity's own
+            // Scroll View pattern uses for plain rectangular clipping like this.
+            var scrollGO = new GameObject("RowsScroll", typeof(RectTransform), typeof(RectMask2D), typeof(ScrollRect));
             scrollGO.transform.SetParent(panelRoot.transform, false);
             var scrollRect = scrollGO.GetComponent<RectTransform>();
             scrollRect.anchorMin = new Vector2(0f, 0f);
             scrollRect.anchorMax = new Vector2(1f, 1f);
             scrollRect.offsetMin = new Vector2(20, 76);
             scrollRect.offsetMax = new Vector2(-20, -140);
-            var scrollBgImage = scrollGO.GetComponent<Image>();
-            scrollBgImage.color = new Color(0f, 0f, 0f, 0.001f); // Mask needs a Graphic to clip against, near-invisible is fine
-            scrollGO.GetComponent<Mask>().showMaskGraphic = false;
 
             var rowsGO = new GameObject("Rows", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
             rowsGO.transform.SetParent(scrollGO.transform, false);
