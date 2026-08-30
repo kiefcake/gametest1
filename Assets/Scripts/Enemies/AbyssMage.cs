@@ -85,7 +85,9 @@ namespace DungeonCrawler.Enemies
         private void Blink()
         {
             Vector3 away = (transform.position - target.position).normalized;
-            transform.position += away * 5f;
+            // Routed through the CharacterController like every other enemy move, so a
+            // blink stops at a wall instead of teleporting straight through one.
+            Move(away * 5f);
             blinkTimer = blinkCooldown;
             SfxLibrary.PlayAt(SfxLibrary.Dash, transform.position, 0.3f); // reuses the dash whoosh -- reads as a short teleport
         }

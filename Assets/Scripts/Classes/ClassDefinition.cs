@@ -14,6 +14,11 @@ namespace DungeonCrawler.Classes
         public ClassRole role;
         public Sprite weaponSprite;
         public Sprite portraitSprite;
+        // Drives AutoAttack's range/damage tradeoff (see GameBootstrap.BeginRun) and
+        // whether the basic attack is an instant melee hit or a fired Projectile.
+        public bool isMelee;
+        // Ranged classes only -- Wizard fires more than one bolt per shot.
+        public int rangedShotCount = 1;
 
         [Header("Base stats (before gear/potions)")]
         public float baseHP = 100;

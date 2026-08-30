@@ -17,6 +17,8 @@ namespace DungeonCrawler.Classes
         // is stuck floating. This runs every frame (not gated behind the h==0/v==0 early
         // return below) so gravity keeps applying even while standing still.
         private const float Gravity = -20f;
+        public float jumpSpeed = 7f;
+        public KeyCode jumpKey = KeyCode.Space;
         private float verticalVelocity;
 
         private PlayerCharacter player;
@@ -53,6 +55,7 @@ namespace DungeonCrawler.Classes
                 // own isGrounded flag needs a slight downward motion each frame to stay true
                 // on flat ground, and resetting to 0 makes it flicker ungrounded.
                 if (controller.isGrounded && verticalVelocity < 0f) verticalVelocity = -0.5f;
+                if (controller.isGrounded && Input.GetKeyDown(jumpKey)) verticalVelocity = jumpSpeed;
                 verticalVelocity += Gravity * Time.deltaTime;
                 delta.y += verticalVelocity * Time.deltaTime;
                 controller.Move(delta);

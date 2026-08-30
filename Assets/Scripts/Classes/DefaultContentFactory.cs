@@ -37,6 +37,7 @@ namespace DungeonCrawler.Classes
             var c = ScriptableObject.CreateInstance<ClassDefinition>();
             c.className = "Knight";
             c.role = ClassRole.Tank;
+            c.isMelee = true;
             c.weaponSprite = Resources.Load<Sprite>("Sprites/Equipment/sword_knight"); // Sword & Shield per locked design -- sword icon stands in for the set
             c.baseHP = 250; c.baseDEF = 15; c.baseATT = 12; c.baseSPD = 5; c.baseDEX = 5; c.baseVIT = 8; c.baseWIS = 3; c.baseMP = 40;
             c.abilities.Add(MakeAbility("Shield Slam", AbilitySlot.Basic1, 2.5f, 8, damage: 15,
@@ -75,6 +76,7 @@ namespace DungeonCrawler.Classes
             var c = ScriptableObject.CreateInstance<ClassDefinition>();
             c.className = "Paladin";
             c.role = ClassRole.Buff;
+            c.isMelee = true;
             c.weaponSprite = Resources.Load<Sprite>("Sprites/Equipment/warhammer_paladin");
             c.baseHP = 190; c.baseDEF = 10; c.baseATT = 10; c.baseSPD = 5; c.baseDEX = 5; c.baseVIT = 7; c.baseWIS = 9; c.baseMP = 60;
             // Active cooldown buff, per locked decision. Real design is a party-wide damage
@@ -94,6 +96,7 @@ namespace DungeonCrawler.Classes
             var c = ScriptableObject.CreateInstance<ClassDefinition>();
             c.className = "Wizard";
             c.role = ClassRole.Damage;
+            c.rangedShotCount = 3; // fires a 3-bolt spread instead of a single shot
             c.weaponSprite = Resources.Load<Sprite>("Sprites/Equipment/staff_wizard");
             c.baseHP = 110; c.baseDEF = 3; c.baseATT = 16; c.baseSPD = 5; c.baseDEX = 8; c.baseVIT = 5; c.baseWIS = 7; c.baseMP = 80;
             c.abilities.Add(MakeAbility("Venom Bolt", AbilitySlot.Basic1, 1.5f, 8, damage: 10,

@@ -77,6 +77,21 @@ namespace DungeonCrawler
             playerGO.AddComponent<PlayerMovement>();
             var abilityInput = playerGO.AddComponent<PlayerAbilityInput>(); // 1/2/3 or RMB cast Basic1/Basic2/Ultimate -- see PlayerAbilityInput for the crosshair targeting rule
             var autoAttack = playerGO.AddComponent<AutoAttack>(); // hold LMB -- free, DEX-scaled attack rate, ATT-scaled damage
+            autoAttack.isMelee = def.isMelee;
+            if (def.isMelee)
+            {
+                // Shorter reach in exchange for hitting harder -- a melee class standing
+                // in someone's face should feel scarier than the old shared 12-unit/
+                // 8-damage default let it.
+                autoAttack.castRange = 2.5f;
+                autoAttack.baseDamage = 14f;
+            }
+            else
+            {
+                autoAttack.castRange = 12f;
+                autoAttack.baseDamage = 7f;
+                autoAttack.projectileCount = def.rangedShotCount;
+            }
             playerGO.AddComponent<PlayerRegen>(); // passive HP/MP regen, scaled by VIT
             playerGO.AddComponent<PlayerInteraction>(); // E -- opens shops, enters/exits the dungeon via Interactable markers
             playerGO.AddComponent<PlayerDash>(); // Left Shift -- directional dodge burst, goes through CharacterController so it can't punch through walls

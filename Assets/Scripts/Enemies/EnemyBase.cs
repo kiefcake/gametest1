@@ -1,5 +1,6 @@
 using UnityEngine;
 using DungeonCrawler.Core;
+using DungeonCrawler.Classes;
 using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.Enemies
@@ -17,6 +18,10 @@ namespace DungeonCrawler.Enemies
         protected Health health;
         protected StatusEffectController statusController;
         protected Transform target; // nearest player, assigned by spawner/aggro system
+        // Movement used to be raw transform.position += -- no collision at all, so enemies
+        // could walk straight through walls and off the edge of the floor. Routed through
+        // the same CharacterController.Move() sweep the player uses instead.
+        protected CharacterController controller;
         private float attackTimer;
 
         [Header("Death")]
@@ -55,14 +60,22 @@ namespace DungeonCrawler.Enemies
             statusController.health = health;
             health.statusController = statusController;
             health.OnDeath += HandleDeath;
+            health.OnDamaged += OnDamagedAggro;
             gameObject.AddComponent<HealthVFX>(); // floating damage numbers + hit flash
 
-            // AoE abilities use Physics.OverlapSphere, which needs a collider to detect this object.
+            // AoE abilities use Physics.OverlapSphere, which needs a collider to detect this
+            // object -- a CharacterController satisfies that (it's itself a Collider) while
+            // also giving MoveTowardTarget somewhere to route real swept collision through.
             if (GetComponent<Collider>() == null)
             {
-                var col = gameObject.AddComponent<CapsuleCollider>();
-                col.height = 2f;
-                col.radius = 0.4f;
+                controller = gameObject.AddComponent<CharacterController>();
+                controller.height = 2f;
+                controller.radius = 0.4f;
+                controller.center = new Vector3(0, 1f, 0);
+            }
+            else
+            {
+                controller = GetComponent<CharacterController>();
             }
 
             if (!string.IsNullOrEmpty(spriteResourcePath))
@@ -80,7 +93,11 @@ namespace DungeonCrawler.Enemies
 
         protected virtual void OnDestroy()
         {
-            if (health != null) health.OnDeath -= HandleDeath;
+            if (health != null)
+            {
+                health.OnDeath -= HandleDeath;
+                health.OnDamaged -= OnDamagedAggro;
+            }
         }
 
         // "Downed" (health.IsDowned == true) already halts Update's move/attack logic below,
@@ -130,7 +147,16 @@ namespace DungeonCrawler.Enemies
             float weave = Mathf.Sin((Time.time + weavePhase) * weaveSpeed) * weaveAmount * weaveFade;
 
             Vector3 dir = (dirToTarget + perpendicular * weave + ComputeSeparation() * separationStrength).normalized;
-            transform.position += dir * moveSpeed * speedMod * Time.deltaTime;
+            Move(dir * moveSpeed * speedMod * Time.deltaTime);
+        }
+
+        // Routes through the CharacterController when one exists (the normal case) so
+        // movement actually collides with walls/floors; falls back to a raw transform
+        // nudge only if some future subclass genuinely has no controller.
+        protected void Move(Vector3 delta)
+        {
+            if (controller != null) controller.Move(delta);
+            else transform.position += delta;
         }
 
         // Pushes away from any other EnemyBase within separationRadius, weighted stronger
@@ -161,5 +187,19 @@ namespace DungeonCrawler.Enemies
         }
 
         public void SetTarget(Transform t) => target = t;
+        // Read by AggroController's leash check -- it needs to know the CURRENT target
+        // (which it may itself have set to null) without re-deriving it independently.
+        public Transform CurrentTarget => target;
+
+        // Getting shot from outside normal aggro range (a sniped Scurrier three rooms
+        // over, say) used to never register at all -- only AggroController's periodic
+        // proximity rescan could ever set a target. Any damage now pulls aggro straight
+        // onto the player if nothing was already being fought, regardless of distance.
+        private void OnDamagedAggro(float amount)
+        {
+            if (target != null || health.IsDowned) return;
+            var player = FindObjectOfType<PlayerCharacter>(); // solo play -- same shortcut AggroController's own scan already takes
+            if (player != null) target = player.transform;
+        }
     }
 }

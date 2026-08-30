@@ -6,8 +6,10 @@ namespace DungeonCrawler.Enemies
 {
     // Simple dodgeable bolt -- travels in a straight line at a speed slow enough that a
     // player who's paying attention can sidestep it (see RangedImp.projectileSpeed),
-    // rather than an instant hitscan. Damages the player only: nothing here bothers with
-    // an owner-exclusion list since the only thing it's allowed to hit is PlayerCharacter.
+    // rather than an instant hitscan. Shared by both sides: targetsPlayer (default true,
+    // matching every existing enemy-fired call site) picks whether it looks for a
+    // PlayerCharacter or an EnemyBase to hit, so player-fired shots (see AutoAttack) reuse
+    // the exact same travel/lifetime/impact code instead of a parallel class.
     public class Projectile : MonoBehaviour
     {
         private Vector3 direction;
@@ -15,8 +17,9 @@ namespace DungeonCrawler.Enemies
         private float damage;
         private float lifetime;
         private float age;
+        private bool targetsPlayer;
 
-        public static Projectile Spawn(Vector3 pos, Vector3 dir, float speed, float damage, Color color, float lifetime = 4f)
+        public static Projectile Spawn(Vector3 pos, Vector3 dir, float speed, float damage, Color color, float lifetime = 4f, bool targetsPlayer = true)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             go.name = "Projectile";
@@ -48,6 +51,7 @@ namespace DungeonCrawler.Enemies
             proj.speed = speed;
             proj.damage = damage;
             proj.lifetime = lifetime;
+            proj.targetsPlayer = targetsPlayer;
             return proj;
         }
 
@@ -55,15 +59,28 @@ namespace DungeonCrawler.Enemies
         {
             transform.position += direction * speed * Time.deltaTime;
             age += Time.deltaTime;
-            if (age >= lifetime) Destroy(gameObject);
+            if (age >= lifetime) Destroy(gameObject); // shoots to a distance (speed * lifetime) and disappears even on a total miss
         }
 
         private void OnTriggerEnter(Collider other)
         {
-            var player = other.GetComponentInParent<PlayerCharacter>();
-            if (player == null || player.health == null) return;
+            if (targetsPlayer)
+            {
+                var player = other.GetComponentInParent<PlayerCharacter>();
+                if (player == null || player.health == null) return;
+                player.health.TakeDamage(damage, ignoreDef: false);
+            }
+            else
+            {
+                var enemy = other.GetComponentInParent<EnemyBase>();
+                var health = enemy != null ? enemy.GetComponent<Core.IHealth>() : null;
+                if (health == null || health.IsDowned) return;
+                // TakeDamage fires Health.OnDamaged, which EnemyBase listens to and uses to
+                // aggro onto the player even from outside normal aggro range -- see
+                // EnemyBase.OnDamagedAggro.
+                health.TakeDamage(damage, ignoreDef: false);
+            }
 
-            player.health.TakeDamage(damage, ignoreDef: false);
             ImpactBurst.Spawn(transform.position, new Color(0.8f, 0.2f, 0.9f));
             Destroy(gameObject);
         }

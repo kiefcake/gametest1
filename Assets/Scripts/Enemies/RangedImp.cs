@@ -44,7 +44,7 @@ namespace DungeonCrawler.Enemies
             if (dist < retreatRange)
             {
                 Vector3 away = (transform.position - target.position).normalized;
-                transform.position += away * moveSpeed * Time.deltaTime;
+                Move(away * moveSpeed * Time.deltaTime);
             }
             else if (dist > preferredRange)
             {
