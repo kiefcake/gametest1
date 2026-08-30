@@ -2,6 +2,13 @@ using UnityEngine;
 
 namespace DungeonCrawler.World
 {
+    // Which palette/hazard set BuildRoom-family methods use -- lets the exact same room/
+    // corridor/circular-room/platform/tunnel generator below serve more than one dungeon
+    // without duplicating any of that structural code. Add a case here plus an Apply*
+    // Palette method and a hazard branch (see BuildRoom/BuildCircularRoom) for each new
+    // dungeon theme.
+    public enum DungeonTheme { Abyss, FrozenCrypt }
+
     // A real (if crude) dungeon: five rooms in a line -- Entry, two Combat rooms, a Vault,
     // and the Boss -- joined by corridors, instead of BlockoutRoom's single flat box. Same
     // placeholder-geometry philosophy (primitives, flat colors), just enough structure
@@ -55,9 +62,16 @@ namespace DungeonCrawler.World
         public Vector3 Combat2PlatformPoint { get; private set; }
 
         private float RoomSpacing => roomDepth + corridorLength;
+        private DungeonTheme theme;
 
-        private void Awake()
+        // Explicit call instead of building in Awake() -- GameBootstrap needs to hand this
+        // a theme (which room/enemy content to build) before generation runs, the same
+        // reason PlayerCharacter.Initialize() exists instead of doing everything in Awake.
+        public void Build(DungeonTheme dungeonTheme = DungeonTheme.Abyss)
         {
+            theme = dungeonTheme;
+            if (theme == DungeonTheme.FrozenCrypt) ApplyFrozenCryptPalette();
+
             EntryPoint = Vector3.zero;
             CombatPoint = new Vector3(0, 0, RoomSpacing);
             Combat2Point = new Vector3(0, 0, RoomSpacing * 2f);
@@ -76,6 +90,19 @@ namespace DungeonCrawler.World
             BuildCorridor((VaultPoint + BossPoint) / 2f);
 
             BuildVerticalTunnel(Combat2Point);
+        }
+
+        // Icy blue/white instead of the Abyss's dark red/black -- overrides the color
+        // fields' Abyss-tuned defaults before any geometry reads them.
+        private void ApplyFrozenCryptPalette()
+        {
+            entryFloorColor = new Color(0.58f, 0.68f, 0.78f);
+            combatFloorColor = new Color(0.48f, 0.62f, 0.74f);
+            vaultFloorColor = new Color(0.55f, 0.63f, 0.7f);
+            bossFloorColor = new Color(0.38f, 0.52f, 0.68f);
+            corridorFloorColor = new Color(0.5f, 0.6f, 0.7f);
+            wallColor = new Color(0.68f, 0.8f, 0.9f);
+            ceilingColor = new Color(0.28f, 0.38f, 0.48f);
         }
 
         private void BuildRoom(Vector3 center, Color floorColor, bool openNorth, bool openSouth, bool hazardous, bool westTunnel = false, bool platform = false)
@@ -106,9 +133,18 @@ namespace DungeonCrawler.World
             // not just uniform decoration everywhere.
             if (hazardous)
             {
-                BuildLavaPool(center + new Vector3(6f, 0, 4f), 2.5f);
-                BuildBonePile(center + new Vector3(-8f, 0, -3f));
-                BuildBonePile(center + new Vector3(5f, 0, -8f));
+                if (theme == DungeonTheme.FrozenCrypt)
+                {
+                    BuildIcePatch(center + new Vector3(6f, 0, 4f), 2.5f);
+                    BuildIceSpikes(center + new Vector3(-8f, 0, -3f));
+                    BuildIceSpikes(center + new Vector3(5f, 0, -8f));
+                }
+                else
+                {
+                    BuildLavaPool(center + new Vector3(6f, 0, 4f), 2.5f);
+                    BuildBonePile(center + new Vector3(-8f, 0, -3f));
+                    BuildBonePile(center + new Vector3(5f, 0, -8f));
+                }
             }
 
             // A raised platform in the room's south-east corner, up a ramp -- a ranged
@@ -159,9 +195,18 @@ namespace DungeonCrawler.World
                 BuildTorch(center + new Vector3(-(radius - 2f), 1.1f, 0));
             }
 
-            BuildLavaPool(center + new Vector3(-6f, 0, -6f), 2.5f);
-            BuildBonePile(center + new Vector3(-8f, 0, 5f));
-            BuildBonePile(center + new Vector3(6f, 0, -8f));
+            if (theme == DungeonTheme.FrozenCrypt)
+            {
+                BuildIcePatch(center + new Vector3(-6f, 0, -6f), 2.5f);
+                BuildIceSpikes(center + new Vector3(-8f, 0, 5f));
+                BuildIceSpikes(center + new Vector3(6f, 0, -8f));
+            }
+            else
+            {
+                BuildLavaPool(center + new Vector3(-6f, 0, -6f), 2.5f);
+                BuildBonePile(center + new Vector3(-8f, 0, 5f));
+                BuildBonePile(center + new Vector3(6f, 0, -8f));
+            }
 
             // Sniper platform to the east, well clear of both corridor openings (0 deg and
             // 180 deg) -- the ramp climbs toward the room's own center so it can't run past
@@ -261,6 +306,50 @@ namespace DungeonCrawler.World
             skull.transform.position = pos + new Vector3(Random.Range(-0.3f, 0.3f), 0.12f, Random.Range(-0.3f, 0.3f));
             skull.transform.localScale = new Vector3(0.32f, 0.28f, 0.36f);
             SetColor(skull, boneColor);
+        }
+
+        // Frozen Crypt's equivalent of BuildLavaPool -- same periodic-damage hazard
+        // (LavaHazard is generic despite the name, just a damage-over-time trigger volume),
+        // reskinned as frostbite-blue instead of fire-orange.
+        private void BuildIcePatch(Vector3 pos, float radius)
+        {
+            var pool = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pool.name = "IcePatch";
+            pool.transform.SetParent(transform);
+            pool.transform.position = pos + new Vector3(0, 0.03f, 0);
+            pool.transform.localScale = new Vector3(radius * 2f, 0.03f, radius * 2f);
+            SetColor(pool, new Color(0.55f, 0.85f, 1f));
+
+            var glow = pool.AddComponent<PortalGlow>();
+            glow.colorA = new Color(0.35f, 0.65f, 0.9f);
+            glow.colorB = new Color(0.75f, 0.95f, 1f);
+            glow.speed = 0.8f;
+
+            var col = pool.GetComponent<Collider>();
+            if (col != null) col.isTrigger = true;
+
+            pool.AddComponent<LavaHazard>();
+        }
+
+        // BuildBonePile's icy counterpart -- jagged ice-spike clusters instead of scattered
+        // bones, same crude-primitives-read-instantly approach.
+        private void BuildIceSpikes(Vector3 pos)
+        {
+            var iceColor = new Color(0.78f, 0.92f, 1f);
+            int count = Random.Range(3, 6);
+            for (int i = 0; i < count; i++)
+            {
+                var spike = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                spike.name = "IceSpike";
+                var col = spike.GetComponent<Collider>();
+                if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
+                spike.transform.SetParent(transform);
+                Vector3 offset = new Vector3(Random.Range(-0.5f, 0.5f), 0.1f, Random.Range(-0.5f, 0.5f));
+                spike.transform.position = pos + offset;
+                spike.transform.rotation = Quaternion.Euler(Random.Range(-8f, 8f), Random.Range(0f, 360f), Random.Range(-8f, 8f));
+                spike.transform.localScale = new Vector3(0.1f, Random.Range(0.4f, 0.7f), 0.1f);
+                SetColor(spike, iceColor);
+            }
         }
 
         // A flat, dark ceiling reads better than leaving the room open to the void above --

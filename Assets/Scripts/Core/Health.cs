@@ -54,8 +54,22 @@ namespace DungeonCrawler.Core
         {
             if (IsDowned) return;
             float mitigated = ignoreDef ? amount : Mathf.Max(1f, amount - defense);
-            if (statusController != null && statusController.HasEffect(StatusEffectType.Fortified))
-                mitigated *= 1f - statusController.GetMagnitude(StatusEffectType.Fortified);
+
+            // ArmorBreak and Curse were both documented as "increased damage taken" and
+            // already applied by real abilities (Knight's Shield Slam, a Wizard curse) --
+            // neither was ever actually read here, making both fully inert. Fortified
+            // already established the "check statusController, multiply mitigated" shape;
+            // this just extends it to the two damage-taken-up effects instead of only the
+            // damage-taken-down one.
+            if (statusController != null)
+            {
+                if (statusController.HasEffect(StatusEffectType.ArmorBreak))
+                    mitigated *= 1f + statusController.GetMagnitude(StatusEffectType.ArmorBreak);
+                if (statusController.HasEffect(StatusEffectType.Curse))
+                    mitigated *= 1f + statusController.GetMagnitude(StatusEffectType.Curse);
+                if (statusController.HasEffect(StatusEffectType.Fortified))
+                    mitigated *= 1f - statusController.GetMagnitude(StatusEffectType.Fortified);
+            }
 
             CurrentHP -= mitigated;
             OnDamaged?.Invoke(mitigated);

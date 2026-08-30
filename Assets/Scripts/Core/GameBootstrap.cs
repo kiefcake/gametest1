@@ -122,7 +122,7 @@ namespace DungeonCrawler
             StatScreenUI.Build(player); // toggle with C
             PauseMenuUI.Build(); // toggle with Escape -- owns cursor lock/timeScale pausing
 
-            hub.GateInteractable.onInteract = EnterDungeon;
+            hub.GateInteractable.onInteract = () => DungeonSelectUI.Show(EnterAbyssDungeon, EnterFrozenCrypt);
             WireVendors();
             WireMinigames();
 
@@ -221,16 +221,18 @@ namespace DungeonCrawler
             return pool.TryGetValue(itemName, out var item) ? new ShopStock { item = item, price = price } : default(ShopStock);
         }
 
-        // Builds (or rebuilds, if this isn't the first visit) the abyss dungeon and drops
-        // the player at its entry room. Rebuilding fresh every time the gate is used -- not
-        // just the first -- is what makes the dungeon "repeatable and farmable" per the
+        // Shared setup every dungeon needs: tear down whatever was here before, build fresh
+        // geometry for the given theme, drop the player at its entry room, and set the
+        // scene-global fog to match. Rebuilding fresh every time the gate is used -- not
+        // just the first -- is what makes a dungeon "repeatable and farmable" per the
         // design doc, without needing any save/respawn-timer system.
-        private void EnterDungeon()
+        private DungeonLayout PrepareDungeonRoot(string rootName, DungeonTheme theme, Color fogColor)
         {
             if (dungeonRoot != null) Destroy(dungeonRoot);
 
-            dungeonRoot = new GameObject("AbyssDungeon");
+            dungeonRoot = new GameObject(rootName);
             var layout = dungeonRoot.AddComponent<DungeonLayout>();
+            layout.Build(theme);
 
             playerGO.transform.position = layout.EntryPoint;
 
@@ -238,10 +240,17 @@ namespace DungeonCrawler
             // so it has to be toggled here rather than baked into DungeonLayout itself
             // (which has no idea when the player leaves for the hub).
             RenderSettings.fog = true;
-            RenderSettings.fogColor = new Color(0.1f, 0.02f, 0.03f);
+            RenderSettings.fogColor = fogColor;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogStartDistance = 8f;
             RenderSettings.fogEndDistance = 36f;
+
+            return layout;
+        }
+
+        private void EnterAbyssDungeon()
+        {
+            var layout = PrepareDungeonRoot("AbyssDungeon", DungeonTheme.Abyss, new Color(0.1f, 0.02f, 0.03f));
 
             if (spawnAbyssEncounter)
             {
@@ -279,6 +288,44 @@ namespace DungeonCrawler
                 // The entry-room gate is a long walk back from the boss room in a
                 // five-room dungeon -- an immediate exit right where the run actually
                 // ends is what "leave the dungeon" needs to mean in practice.
+                BuildBossExitGate(layout.BossPoint + new Vector3(-7f, 0, 7f));
+            }
+
+            BuildReturnGate(layout.EntryPoint);
+        }
+
+        // Same shape as EnterAbyssDungeon -- same room graph and encounter layout (via the
+        // shared DungeonLayout generator, see World.DungeonTheme), but Frost Skeletons
+        // instead of Imps and a Frost Lich instead of the Abyss Demon. RangedImp and
+        // AbyssMage are reused as-is on the platforms/tunnel; a dedicated frost ranged enemy
+        // is a reasonable next addition but not required to stand this dungeon up.
+        private void EnterFrozenCrypt()
+        {
+            var layout = PrepareDungeonRoot("FrozenCrypt", DungeonTheme.FrozenCrypt, new Color(0.55f, 0.7f, 0.85f));
+
+            if (spawnAbyssEncounter)
+            {
+                SpawnFrostSkeleton(layout.CombatPoint + new Vector3(3, 0, 2));
+                SpawnFrostSkeleton(layout.CombatPoint + new Vector3(-3, 0, 2));
+                SpawnScurrierImp(layout.CombatPoint + new Vector3(5f, 0, -3f));
+                SpawnScurrierImp(layout.CombatPoint + new Vector3(-5f, 0, -3f));
+                SpawnRangedImp(layout.CombatPlatformPoint);
+
+                SpawnFrostSkeleton(layout.Combat2Point + new Vector3(3.5f, 0, 2f));
+                SpawnFrostSkeleton(layout.Combat2Point + new Vector3(-3.5f, 0, -1f));
+                SpawnRangedImp(layout.Combat2Point + new Vector3(-2f, 0, -6));
+                SpawnRangedImp(layout.Combat2Point + new Vector3(2f, 0, -6));
+                SpawnScurrierImp(layout.Combat2Point + new Vector3(6f, 0, 0));
+                SpawnAbyssMage(layout.Combat2PlatformPoint);
+
+                SpawnFrostSkeleton(layout.TunnelPoint + new Vector3(-1.5f, 0, 1.5f));
+                SpawnFrostSkeleton(layout.TunnelPoint + new Vector3(1.5f, 0, -1.5f));
+                SpawnRangedImp(layout.TunnelPoint + new Vector3(0, 0, -2f));
+                SpawnTunnelLoot(layout.TunnelPoint + new Vector3(0, 0, 3f));
+
+                SpawnVaultLoot(layout.VaultPoint);
+                SpawnFrostLichBoss(layout.BossPoint);
+
                 BuildBossExitGate(layout.BossPoint + new Vector3(-7f, 0, 7f));
             }
 
@@ -419,6 +466,37 @@ namespace DungeonCrawler
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
             loot.minGold = 8;
             loot.maxGold = 14;
+        }
+
+        private void SpawnFrostSkeleton(Vector3 pos)
+        {
+            var go = new GameObject("FrostSkeleton");
+            go.transform.position = pos;
+            go.AddComponent<Health>();
+            go.AddComponent<StatusEffectController>();
+            go.AddComponent<FrostSkeleton>();
+            go.AddComponent<AggroController>();
+            var loot = go.AddComponent<LootDropper>();
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
+            loot.minGold = 4;
+            loot.maxGold = 9;
+        }
+
+        private void SpawnFrostLichBoss(Vector3 pos)
+        {
+            var go = new GameObject("FrostLich");
+            go.transform.position = pos;
+            var h = go.AddComponent<Health>();
+            h.maxHP = 1100;
+            h.SetCurrentHP(h.maxHP);
+            go.AddComponent<StatusEffectController>();
+            go.AddComponent<FrostLich>();
+            go.AddComponent<AggroController>();
+            var loot = go.AddComponent<LootDropper>();
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
+            loot.minGold = 90;
+            loot.maxGold = 140;
+            loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
         }
 
         private void SpawnBoss(Vector3 pos)

@@ -380,7 +380,7 @@ namespace DungeonCrawler.World
             col.size = new Vector3(4.5f, 2.4f, 1.6f);
 
             GateInteractable = triggerGO.AddComponent<Interactable>();
-            GateInteractable.prompt = "Enter the Abyss (E)";
+            GateInteractable.prompt = "Enter the Dungeon (E)";
         }
 
         private void BuildGatePillar(Vector3 basePos)
