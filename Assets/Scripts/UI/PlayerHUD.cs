@@ -35,6 +35,17 @@ namespace DungeonCrawler.UI
         private const float LookAtRange = 4f; // short -- "what am I about to pick up," not ability targeting range
 
         private readonly List<AbilitySlotUI> abilitySlots = new List<AbilitySlotUI>();
+        private RectTransform buffBarRoot;
+        // Pooled and reused rather than destroyed/rebuilt every frame -- grows to fit the
+        // most simultaneous effects seen so far, extra slots just get hidden.
+        private readonly List<BuffSlotUI> buffSlots = new List<BuffSlotUI>();
+
+        private class BuffSlotUI
+        {
+            public GameObject root;
+            public Image background;
+            public Text label;
+        }
 
         private static readonly Color ReadyColor = new Color(0.16f, 0.18f, 0.24f, 0.92f);
         private static readonly Color NotReadyColor = new Color(0.07f, 0.07f, 0.08f, 0.92f);
@@ -121,7 +132,57 @@ namespace DungeonCrawler.UI
             }
             if (goldLabel != null && wallet != null) goldLabel.text = $"Gold: {wallet.Gold}";
             UpdateLookAtLabel();
+            UpdateBuffBar();
         }
+
+        // No visibility into active buffs/debuffs before this -- Bleed, Weaken, ArmorBreak
+        // etc. were all working (see Health.TakeDamage / StatusEffectController) but purely
+        // invisible to the player, who'd only ever notice one from its side effect (taking
+        // extra damage, hitting softer) with no idea why or how long it'd last.
+        private void UpdateBuffBar()
+        {
+            if (player.statusController == null) return;
+            var effects = player.statusController.Active;
+
+            while (buffSlots.Count < effects.Count) BuildBuffSlot(buffSlots.Count);
+
+            for (int i = 0; i < buffSlots.Count; i++)
+            {
+                var slot = buffSlots[i];
+                if (i < effects.Count)
+                {
+                    var e = effects[i];
+                    slot.root.SetActive(true);
+                    slot.background.color = BuffColor(e.type);
+                    slot.label.text = $"{ShortName(e.type)} {Mathf.CeilToInt(e.remainingDuration)}s";
+                }
+                else
+                {
+                    slot.root.SetActive(false);
+                }
+            }
+        }
+
+        // Debuffs get a shared generic purple (matches AbilityCaster.ImpactColor's own
+        // "generic debuff" convention for ArmorBreak/Weaken/Curse/Sick) since there are
+        // more of them than distinct colors are worth inventing; the more mechanically
+        // distinct ones (DoTs, Paralyze, the two self-buffs) get their own.
+        private static Color BuffColor(StatusEffectType t) => t switch
+        {
+            StatusEffectType.Bleed => new Color(0.75f, 0.15f, 0.15f),
+            StatusEffectType.Poison => new Color(0.4f, 0.75f, 0.2f),
+            StatusEffectType.Paralyze => new Color(0.5f, 0.8f, 1f),
+            StatusEffectType.Fortified => new Color(0.3f, 0.7f, 0.9f),
+            StatusEffectType.Empowered => new Color(0.95f, 0.85f, 0.3f),
+            _ => new Color(0.6f, 0.3f, 0.75f),
+        };
+
+        private static string ShortName(StatusEffectType t) => t switch
+        {
+            StatusEffectType.ArmorBreak => "Armor Break",
+            StatusEffectType.Paralyze => "Paralyzed",
+            _ => t.ToString(),
+        };
 
         // "What am I looking at" -- before you walk into a dropped item and it's just
         // gone, show its name near the crosshair. Trigger colliders are included
@@ -191,9 +252,35 @@ namespace DungeonCrawler.UI
 
             BuildScreenFlash(canvasGO.transform);
             BuildResourceBars(canvasGO.transform);
+            BuildBuffBar(canvasGO.transform);
             BuildAbilityBar(canvasGO.transform);
             BuildCrosshair(canvasGO.transform);
             BuildDownedBanner(canvasGO.transform);
+        }
+
+        private void BuildBuffBar(Transform parent)
+        {
+            buffBarRoot = MakeRect("BuffBar", parent, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -112), new Vector2(700, 24));
+        }
+
+        private void BuildBuffSlot(int index)
+        {
+            var chipRect = MakeRect($"Buff_{index}", buffBarRoot, new Vector2(0, 0.5f), new Vector2(0, 0.5f),
+                new Vector2(0, 0.5f), new Vector2(index * 114f, 0), new Vector2(110, 24));
+            var bg = chipRect.gameObject.AddComponent<Image>();
+            bg.color = new Color(0.5f, 0.3f, 0.6f);
+
+            var textRect = MakeRect("Label", chipRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            var text = textRect.gameObject.AddComponent<Text>();
+            text.font = uiFont;
+            text.fontSize = 12;
+            text.fontStyle = FontStyle.Bold;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = Color.white;
+
+            buffSlots.Add(new BuffSlotUI { root = chipRect.gameObject, background = bg, label = text });
         }
 
         private void BuildScreenFlash(Transform parent)

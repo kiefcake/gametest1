@@ -66,6 +66,11 @@ namespace DungeonCrawler.Core
 
         public bool HasEffect(StatusEffectType type) => active.Exists(e => e.type == type);
 
+        // Read-only view for UI (see PlayerHUD's buff bar) -- exposes the live list rather
+        // than a defensive copy since nothing outside this class ever mutates it, and a
+        // fresh copy every frame for a per-frame HUD read would just be wasted allocation.
+        public IReadOnlyList<ActiveStatusEffect> Active => active;
+
         public float GetMagnitude(StatusEffectType type)
         {
             var e = active.Find(x => x.type == type);
