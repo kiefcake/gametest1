@@ -426,8 +426,12 @@ namespace DungeonCrawler.World
             var light = torchGO.AddComponent<Light>();
             light.type = LightType.Point;
             light.color = new Color(1f, 0.65f, 0.3f);
-            light.range = 8f;
-            light.intensity = 1.7f;
+            // Corner torches sit ~16-17 units from a 28-unit room's own center (see
+            // BuildRoomDecor's inset) -- an 8-unit range never reached it, leaving the
+            // middle of every room (exactly where the player spawns/walks) lit by ambient
+            // alone. Bumped to actually cover that distance.
+            light.range = 18f;
+            light.intensity = 2f;
             torchGO.AddComponent<TorchFlicker>();
         }
 

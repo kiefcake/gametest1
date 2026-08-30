@@ -247,8 +247,13 @@ namespace DungeonCrawler
             RenderSettings.fog = true;
             RenderSettings.fogColor = fogColor;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogStartDistance = 8f;
-            RenderSettings.fogEndDistance = 36f;
+            // Rooms are 28 units wide (half 14) and the circular room is radius 15 -- the
+            // old 8/36 distances started fogging before a room's own far wall was even in
+            // view, on top of torches that didn't reach that far either (see
+            // DungeonLayout.BuildTorch). Pushed out so a room reads clearly from its own
+            // center; corridors and anything further off still fade into the dungeon's fog.
+            RenderSettings.fogStartDistance = 16f;
+            RenderSettings.fogEndDistance = 55f;
 
             return layout;
         }
