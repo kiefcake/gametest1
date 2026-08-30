@@ -7,6 +7,9 @@ namespace DungeonCrawler.Core
     {
         public float maxHP = 100f;
         public float defense = 0f;
+        // Testing hook only (see World.DebugTools' God Mode toggle) -- not touched by any
+        // normal gameplay path.
+        public bool invulnerable = false;
 
         // Private setter -- external code should go through TakeDamage/Heal/Revive/
         // SetCurrentHP rather than mutating HP directly, so nothing can bypass the
@@ -52,7 +55,7 @@ namespace DungeonCrawler.Core
 
         public void TakeDamage(float amount, bool ignoreDef)
         {
-            if (IsDowned) return;
+            if (IsDowned || invulnerable) return;
             float mitigated = ignoreDef ? amount : Mathf.Max(1f, amount - defense);
 
             // ArmorBreak and Curse were both documented as "increased damage taken" and

@@ -54,6 +54,13 @@ namespace DungeonCrawler.Abilities
             return cooldownTimers.TryGetValue(ability, out float remaining) ? Mathf.Max(0f, remaining) : 0f;
         }
 
+        // Testing hook only (see Core.DebugTools) -- lets a reset-cooldowns hotkey clear
+        // the dictionary Update() ticks down without exposing it directly.
+        public void SetCooldown(AbilityData ability, float value)
+        {
+            if (cooldownTimers.ContainsKey(ability)) cooldownTimers[ability] = value;
+        }
+
         public bool TryCast(AbilitySlot slot, GameObject target)
         {
             if (statusController != null && statusController.IsParalyzed) return false;

@@ -136,6 +136,7 @@ namespace DungeonCrawler
             PlayerHUD.Build(player, wallet, downedRecovery);
             StatScreenUI.Build(player); // toggle with C
             PauseMenuUI.Build(); // toggle with Escape -- owns cursor lock/timeScale pausing
+            DebugTools.Build(player, wallet); // F1-F5 testing hotkeys -- see DebugTools for the list
 
             hub.GateInteractable.onInteract = () =>
             {
