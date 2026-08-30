@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee7fe73e795e80a4582e75070c036c0d, type: 3}
+  m_Name: AbyssLootTable
+  m_EditorClassIdentifier: 
+  entries:
+  - item: {fileID: 11400000, guid: eb16fdaff8d7a7248ab4d66aff580b72, type: 2}
+    dropChance: 0.1
+  - item: {fileID: 11400000, guid: 37ca559c253b2e6448c90f5a4ae5e3b6, type: 2}
+    dropChance: 0.1
+  - item: {fileID: 11400000, guid: 601cccf87264b844a970f5afbcf3c1ac, type: 2}
+    dropChance: 0.08
+  - item: {fileID: 11400000, guid: 8a92ca1f4d35da74683990686b0e463b, type: 2}
+    dropChance: 0.08
+  - item: {fileID: 11400000, guid: 354760194c6cc174299f777b29d6270a, type: 2}
+    dropChance: 0.08
+  - item: {fileID: 11400000, guid: 79d75db7cfce57d48968229cfd04a976, type: 2}
+    dropChance: 0.08
+  - item: {fileID: 11400000, guid: 899887090dcbfec4384ac6b663031079, type: 2}
+    dropChance: 0.08
+  - item: {fileID: 11400000, guid: 342c44b4726ed4c4489bb8d4bd0ba333, type: 2}
+    dropChance: 0.08
+  - item: {fileID: 11400000, guid: f9ad7de8634bcd440843b337a7b1260b, type: 2}
+    dropChance: 0.04

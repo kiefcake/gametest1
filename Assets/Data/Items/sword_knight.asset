@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 281dcb6aa960232458c9ae0e2444070f, type: 3}
+  m_Name: sword_knight
+  m_EditorClassIdentifier: 
+  itemName: Knight's Sword
+  category: 0
+  rarity: 2
+  isUnique: 1
+  icon: {fileID: 21300000, guid: 78897ecb411a23d4fa726de6883ca3eb, type: 3}
+  primaryStat: 2
+  primaryStatBonus: 4
+  potionStat: 0
+  description: Half of the Knight's sword-and-shield kit. Equip it to add flat ATT.
