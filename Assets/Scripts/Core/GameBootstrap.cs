@@ -122,7 +122,11 @@ namespace DungeonCrawler
             StatScreenUI.Build(player); // toggle with C
             PauseMenuUI.Build(); // toggle with Escape -- owns cursor lock/timeScale pausing
 
-            hub.GateInteractable.onInteract = () => DungeonSelectUI.Show(EnterAbyssDungeon, EnterFrozenCrypt);
+            hub.GateInteractable.onInteract = () =>
+            {
+                Debug.Log("[Bootstrap] Gate interact fired");
+                DungeonSelectUI.Show(EnterAbyssDungeon, EnterFrozenCrypt);
+            };
             WireVendors();
             WireMinigames();
 
@@ -233,6 +237,7 @@ namespace DungeonCrawler
             dungeonRoot = new GameObject(rootName);
             var layout = dungeonRoot.AddComponent<DungeonLayout>();
             layout.Build(theme);
+            Debug.Log($"[Bootstrap] {rootName} layout built OK -- EntryPoint {layout.EntryPoint}");
 
             playerGO.transform.position = layout.EntryPoint;
 
@@ -250,6 +255,7 @@ namespace DungeonCrawler
 
         private void EnterAbyssDungeon()
         {
+            Debug.Log("[Bootstrap] EnterAbyssDungeon() called");
             var layout = PrepareDungeonRoot("AbyssDungeon", DungeonTheme.Abyss, new Color(0.1f, 0.02f, 0.03f));
 
             if (spawnAbyssEncounter)
@@ -301,6 +307,7 @@ namespace DungeonCrawler
         // is a reasonable next addition but not required to stand this dungeon up.
         private void EnterFrozenCrypt()
         {
+            Debug.Log("[Bootstrap] EnterFrozenCrypt() called");
             var layout = PrepareDungeonRoot("FrozenCrypt", DungeonTheme.FrozenCrypt, new Color(0.55f, 0.7f, 0.85f));
 
             if (spawnAbyssEncounter)

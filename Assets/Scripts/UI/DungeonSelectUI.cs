@@ -33,6 +33,7 @@ namespace DungeonCrawler.UI
 
         private void Open(System.Action enterAbyss, System.Action enterFrozenCrypt)
         {
+            Debug.Log("[DungeonSelectUI] Open() -- gate interact reached the popup");
             onAbyss = enterAbyss;
             onFrozenCrypt = enterFrozenCrypt;
 
@@ -76,11 +77,25 @@ namespace DungeonCrawler.UI
 
             MakeLabel("Choose a Dungeon", 24, FontStyle.Bold, new Vector2(0, -32));
 
-            BuildButton("The Abyss", new Vector2(0, 60), new Color(0.65f, 0.2f, 0.2f), () => { Close(); onAbyss?.Invoke(); });
-            BuildButton("The Frozen Crypt", new Vector2(0, -4), new Color(0.25f, 0.45f, 0.65f), () => { Close(); onFrozenCrypt?.Invoke(); });
+            BuildButton("The Abyss", new Vector2(0, 60), new Color(0.65f, 0.2f, 0.2f), OnAbyssClicked);
+            BuildButton("The Frozen Crypt", new Vector2(0, -4), new Color(0.25f, 0.45f, 0.65f), OnFrozenCryptClicked);
             BuildButton("Cancel", new Vector2(0, -68), new Color(0.3f, 0.3f, 0.34f), Close);
 
             panelRoot.SetActive(false);
+        }
+
+        private void OnAbyssClicked()
+        {
+            Debug.Log("[DungeonSelectUI] Abyss button clicked");
+            Close();
+            onAbyss?.Invoke();
+        }
+
+        private void OnFrozenCryptClicked()
+        {
+            Debug.Log("[DungeonSelectUI] Frozen Crypt button clicked");
+            Close();
+            onFrozenCrypt?.Invoke();
         }
 
         private void MakeLabel(string text, int fontSize, FontStyle style, Vector2 anchoredPos)
