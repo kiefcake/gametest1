@@ -125,6 +125,89 @@ namespace DungeonCrawler.World
             }
         }
 
+        // A ring-walled circular arena instead of a rectangular box -- CombatPoint
+        // specifically, for room-shape variety. North/south openings line up with the
+        // corridors the same way a rectangular room's doors do (see BuildCircularWallRing);
+        // everything else around the ring is solid wall built from short tangent segments.
+        private void BuildCircularRoom(Vector3 center, Color floorColor, float radius)
+        {
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            floor.name = "RoomFloor";
+            floor.transform.SetParent(transform);
+            floor.transform.position = center;
+            floor.transform.localScale = new Vector3(radius * 2f, 0.05f, radius * 2f);
+            SetColor(floor, floorColor);
+
+            float gapHalfAngle = Mathf.Asin(Mathf.Clamp01((corridorWidth / 2f) / radius)) * Mathf.Rad2Deg;
+            BuildCircularWallRing(center, radius, new float[] { 0f, 180f }, gapHalfAngle);
+
+            if (buildCeiling)
+            {
+                var ceiling = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                ceiling.name = "Ceiling";
+                var col = ceiling.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+                ceiling.transform.SetParent(transform);
+                ceiling.transform.position = center + new Vector3(0, wallHeight, 0);
+                ceiling.transform.localScale = new Vector3(radius * 2f, 0.05f, radius * 2f);
+                SetColor(ceiling, ceilingColor);
+            }
+
+            if (buildTorches)
+            {
+                BuildTorch(center + new Vector3(radius - 2f, 1.1f, 0));
+                BuildTorch(center + new Vector3(-(radius - 2f), 1.1f, 0));
+            }
+
+            BuildLavaPool(center + new Vector3(-6f, 0, -6f), 2.5f);
+            BuildBonePile(center + new Vector3(-8f, 0, 5f));
+            BuildBonePile(center + new Vector3(6f, 0, -8f));
+
+            // Sniper platform to the east, well clear of both corridor openings (0 deg and
+            // 180 deg) -- the ramp climbs toward the room's own center so it can't run past
+            // the wall on the far side.
+            Vector3 platformTop = center + new Vector3(radius - 6f, platformHeight, 0);
+            CombatPlatformPoint = platformTop;
+            BuildPlatform(platformTop);
+            Vector3 rampTop = platformTop + new Vector3(-platformHalfSize, 0, 0);
+            Vector3 rampBottom = rampTop + new Vector3(-4f, -platformHeight, 0);
+            BuildRamp(rampTop, rampBottom, 3f);
+        }
+
+        // Builds the ring as short wall segments, each tangent to the circle at its own
+        // angle (local X becomes the tangent direction, local Z the radial thickness, once
+        // rotated by that angle around Y) -- skips any segment whose center angle falls
+        // within gapHalfAngle of one of gapAnglesDeg, which is where a corridor connects.
+        private void BuildCircularWallRing(Vector3 center, float radius, float[] gapAnglesDeg, float gapHalfAngle)
+        {
+            const int segments = 24;
+            float segmentAngle = 360f / segments;
+            float chordLength = 2f * radius * Mathf.Sin(segmentAngle * Mathf.Deg2Rad / 2f);
+            float segmentWidth = chordLength * 1.15f; // slight overlap so segments don't leave visible seams
+
+            for (int i = 0; i < segments; i++)
+            {
+                float angle = i * segmentAngle;
+                bool inGap = false;
+                foreach (var gapAngle in gapAnglesDeg)
+                {
+                    if (Mathf.Abs(Mathf.DeltaAngle(angle, gapAngle)) <= gapHalfAngle) { inGap = true; break; }
+                }
+                if (inGap) continue;
+
+                float rad = angle * Mathf.Deg2Rad;
+                Vector3 pos = center + new Vector3(Mathf.Sin(rad) * radius, wallHeight / 2f, Mathf.Cos(rad) * radius);
+
+                var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                wall.name = "CircularWall";
+                wall.transform.SetParent(transform);
+                wall.transform.position = pos;
+                wall.transform.rotation = Quaternion.Euler(0, angle, 0);
+                wall.transform.localScale = new Vector3(segmentWidth, wallHeight, wallThickness);
+                SetColor(wall, wallColor);
+            }
+        }
+
         // A glowing hazard pool -- forces the player to actually route around part of the
         // room instead of walking a straight line through every fight, and gives ranged
         // imps something worth kiting behind.

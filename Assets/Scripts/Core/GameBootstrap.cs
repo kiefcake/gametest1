@@ -247,16 +247,22 @@ namespace DungeonCrawler
             {
                 SpawnImp(layout.CombatPoint + new Vector3(3, 0, 2), false);
                 SpawnImp(layout.CombatPoint + new Vector3(-3, 0, 2), true);
-                SpawnRangedImp(layout.CombatPoint + new Vector3(0, 0, -6));
                 SpawnScurrierImp(layout.CombatPoint + new Vector3(5f, 0, -3f));
                 SpawnScurrierImp(layout.CombatPoint + new Vector3(-5f, 0, -3f));
+                // Posted on the ramp-up platform (see DungeonLayout.CombatPlatformPoint)
+                // instead of the open floor -- has to be climbed up to and engaged, not
+                // just shot at from below with no way to close the gap.
+                SpawnRangedImp(layout.CombatPlatformPoint);
 
                 SpawnImp(layout.Combat2Point + new Vector3(3.5f, 0, 2f), true);
                 SpawnImp(layout.Combat2Point + new Vector3(-3.5f, 0, -1f), true);
                 SpawnRangedImp(layout.Combat2Point + new Vector3(-2f, 0, -6));
                 SpawnRangedImp(layout.Combat2Point + new Vector3(2f, 0, -6));
-                SpawnAbyssMage(layout.Combat2Point + new Vector3(0, 0, 7f));
                 SpawnScurrierImp(layout.Combat2Point + new Vector3(6f, 0, 0));
+                // Same idea as the first room's platform -- a caster sniping from up there
+                // instead of open ground, so its telegraphed AoE has to actually be dodged
+                // while climbing, not just eaten from a safe distance.
+                SpawnAbyssMage(layout.Combat2PlatformPoint);
 
                 // A ramp off Combat2Point's west wall dips down into a below-grade side
                 // tunnel (see DungeonLayout.TunnelPoint) -- the first slice of real
