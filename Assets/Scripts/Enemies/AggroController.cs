@@ -50,12 +50,11 @@ namespace DungeonCrawler.Enemies
                 chaseTimer = 0f;
             }
 
-            // FindObjectsOfType (not FindObjectsByType) deliberately -- the latter only
-            // exists on Unity 2023.1+. FindObjectsOfType works on any version the project
-            // is likely using and only costs anything on the 0.5s rescan tick, not per-frame.
-            // If you're confirmed on 2023.1+, swap to FindObjectsByType(FindObjectsSortMode.None)
-            // for a minor allocation/perf improvement.
-            var players = FindObjectsOfType<PlayerCharacter>();
+            // Now on Unity 6 (see project history) -- switched from the deprecated
+            // FindObjectsOfType to FindObjectsByType with unsorted results, since nothing
+            // here relies on the old API's InstanceID ordering and this only runs on the
+            // 0.5s rescan tick anyway, not per-frame.
+            var players = FindObjectsByType<PlayerCharacter>(FindObjectsSortMode.None);
             Transform nearest = null;
             float nearestDist = aggroRange;
 

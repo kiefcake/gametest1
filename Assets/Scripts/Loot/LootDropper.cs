@@ -38,7 +38,7 @@ namespace DungeonCrawler.Loot
             if (maxGold > 0)
             {
                 int amount = UnityEngine.Random.Range(minGold, maxGold + 1);
-                var wallet = FindObjectOfType<Core.PlayerWallet>();
+                var wallet = FindFirstObjectByType<Core.PlayerWallet>();
                 if (wallet != null && amount > 0)
                 {
                     wallet.Add(amount);
@@ -108,7 +108,7 @@ namespace DungeonCrawler.Loot
         {
             // Solo play -- same FindObjectOfType shortcut PlayerWallet's own lookups
             // already take rather than threading a reference through every spawn path.
-            var inv = FindObjectOfType<InventorySystem>();
+            var inv = FindFirstObjectByType<InventorySystem>();
             if (inv == null || item == null) return;
             if (inv.AddItem(item))
             {

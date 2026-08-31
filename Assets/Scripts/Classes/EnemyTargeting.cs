@@ -27,7 +27,7 @@ namespace DungeonCrawler.Classes
 
         public static GameObject FindNearestEnemy(Transform origin, float range)
         {
-            var enemies = Object.FindObjectsOfType<EnemyBase>();
+            var enemies = Object.FindObjectsByType<EnemyBase>(FindObjectsSortMode.None);
             GameObject nearest = null;
             float nearestDist = range;
             foreach (var e in enemies)

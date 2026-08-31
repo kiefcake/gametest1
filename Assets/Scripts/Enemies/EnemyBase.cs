@@ -198,7 +198,7 @@ namespace DungeonCrawler.Enemies
         private void OnDamagedAggro(float amount)
         {
             if (target != null || health.IsDowned) return;
-            var player = FindObjectOfType<PlayerCharacter>(); // solo play -- same shortcut AggroController's own scan already takes
+            var player = FindFirstObjectByType<PlayerCharacter>(); // solo play -- same shortcut AggroController's own scan already takes
             if (player != null) target = player.transform;
         }
     }

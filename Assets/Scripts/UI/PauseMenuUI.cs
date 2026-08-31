@@ -162,10 +162,10 @@ namespace DungeonCrawler.UI
             titleText.color = Color.white;
             titleText.text = "SETTINGS";
 
-            var look = FindObjectOfType<FirstPersonLook>();
+            var look = FindFirstObjectByType<FirstPersonLook>();
             BuildSlider(card, font, "Mouse Sensitivity", new Vector2(0, 60), 0.5f, 8f,
                 look != null ? look.mouseSensitivity : 2.5f,
-                v => { var l = FindObjectOfType<FirstPersonLook>(); if (l != null) l.mouseSensitivity = v; });
+                v => { var l = FindFirstObjectByType<FirstPersonLook>(); if (l != null) l.mouseSensitivity = v; });
 
             BuildSlider(card, font, "Field of View", new Vector2(0, -10), 60f, 100f,
                 Camera.main != null ? Camera.main.fieldOfView : 82f,

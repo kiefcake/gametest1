@@ -254,9 +254,9 @@ namespace DungeonCrawler.EditorTools
             if (!File.Exists(ScenePath)) return; // AutoTestSceneSetup hasn't run yet
 
             var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
-            if (Object.FindObjectOfType<InventoryUI>() != null) return; // already wired
+            if (Object.FindFirstObjectByType<InventoryUI>() != null) return; // already wired
 
-            if (Object.FindObjectOfType<EventSystem>() == null)
+            if (Object.FindFirstObjectByType<EventSystem>() == null)
             {
                 new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
             }

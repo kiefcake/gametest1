@@ -65,7 +65,7 @@ namespace DungeonCrawler.Core
         private void KillAll()
         {
             int count = 0;
-            foreach (var enemy in FindObjectsOfType<EnemyBase>())
+            foreach (var enemy in FindObjectsByType<EnemyBase>(FindObjectsSortMode.None))
             {
                 var h = enemy.GetComponent<Health>();
                 if (h == null || h.IsDowned) continue;

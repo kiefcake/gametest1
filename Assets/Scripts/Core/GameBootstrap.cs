@@ -125,7 +125,7 @@ namespace DungeonCrawler
             // InventorySystem it displays doesn't exist until now -- wire them together.
             // player is needed too, so clicking a potion slot can actually consume it
             // (UsePotionAt takes a StatBlock) and refresh Health/Mana maxes afterward.
-            var inventoryUI = FindObjectOfType<Inventory.InventoryUI>();
+            var inventoryUI = FindFirstObjectByType<Inventory.InventoryUI>();
             if (inventoryUI != null)
             {
                 inventoryUI.player = player;
@@ -181,7 +181,7 @@ namespace DungeonCrawler
             Debug.Log($"[Bootstrap] WireVendors: pool={pool.Count}, alchemist={alchemistStock.Count}, blacksmith={blacksmithStock.Count}, curiosities={curiosityStock.Count}");
 
             int vendorCount = 0;
-            foreach (var vendor in FindObjectsOfType<VendorNPC>())
+            foreach (var vendor in FindObjectsByType<VendorNPC>(FindObjectsSortMode.None))
             {
                 vendorCount++;
                 vendor.stock = vendor.vendorName switch
