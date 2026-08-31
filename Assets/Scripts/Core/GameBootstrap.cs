@@ -441,6 +441,7 @@ namespace DungeonCrawler
         {
             player.health.Revive(0.5f);
             if (player.mana != null) player.mana.SetMax(player.mana.maxMP, refill: true);
+            RunModifiers.ResetAll(); // this counts as the run ending -- see BeginRun's identical reset
             TeleportPlayer(hubEntryPoint);
             RenderSettings.fog = false;
         }
