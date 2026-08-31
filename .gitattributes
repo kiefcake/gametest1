@@ -1,0 +1,46 @@
+# Auto-detect text files and normalize line endings to LF in the repo (checked out as
+# CRLF on Windows via core.autocrlf) -- this is what's been generating an "LF will be
+# replaced by CRLF" warning on every commit so far.
+* text=auto eol=lf
+
+# Unity's YAML-based scene/prefab/asset files -- keep as text so they diff/merge
+# sensibly instead of being treated as opaque binary blobs.
+*.unity text
+*.asset text
+*.prefab text
+*.meta text
+*.mat text
+*.anim text
+*.controller text
+*.physicsMaterial2D text
+
+# Force LF specifically on Unity's own YAML files regardless of platform, since mixed
+# line endings inside a single YAML document can make Unity's merge tooling misbehave.
+*.unity eol=lf
+*.asset eol=lf
+*.prefab eol=lf
+*.meta eol=lf
+
+# Real binary assets -- never let git try to diff or line-ending-normalize these.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.psd binary
+*.tga binary
+*.tif binary
+*.tiff binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.fbx binary
+*.dll binary
+*.exe binary
+*.ttf binary
+*.otf binary
+
+# Use Unity's own YAML smart merge where available (falls back to a normal text merge
+# if UnityYAMLMerge isn't configured locally -- this line is a no-op until it is).
+*.unity merge=unityyamlmerge
+*.prefab merge=unityyamlmerge
+*.asset merge=unityyamlmerge
