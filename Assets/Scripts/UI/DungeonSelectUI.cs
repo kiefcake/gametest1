@@ -17,6 +17,7 @@ namespace DungeonCrawler.UI
         private Sprite buttonSprite;
         private System.Action onAbyss;
         private System.Action onFrozenCrypt;
+        private System.Action onSunkenRuins;
         private Image hardcoreButtonImage;
         private Text hardcoreButtonText;
 
@@ -25,7 +26,7 @@ namespace DungeonCrawler.UI
         private static readonly Color HardcoreOffColor = new Color(0.3f, 0.3f, 0.34f);
         private static readonly Color HardcoreOnColor = new Color(0.65f, 0.2f, 0.2f);
 
-        public static void Show(System.Action enterAbyss, System.Action enterFrozenCrypt)
+        public static void Show(System.Action enterAbyss, System.Action enterFrozenCrypt, System.Action enterSunkenRuins)
         {
             if (instance == null)
             {
@@ -33,14 +34,15 @@ namespace DungeonCrawler.UI
                 instance = go.AddComponent<DungeonSelectUI>();
                 instance.BuildUI();
             }
-            instance.Open(enterAbyss, enterFrozenCrypt);
+            instance.Open(enterAbyss, enterFrozenCrypt, enterSunkenRuins);
         }
 
-        private void Open(System.Action enterAbyss, System.Action enterFrozenCrypt)
+        private void Open(System.Action enterAbyss, System.Action enterFrozenCrypt, System.Action enterSunkenRuins)
         {
             Debug.Log("[DungeonSelectUI] Open() -- gate interact reached the popup");
             onAbyss = enterAbyss;
             onFrozenCrypt = enterFrozenCrypt;
+            onSunkenRuins = enterSunkenRuins;
 
             RefreshHardcoreButton();
             panelRoot.SetActive(true);
@@ -73,7 +75,7 @@ namespace DungeonCrawler.UI
             var panelRect = panelRoot.GetComponent<RectTransform>();
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
-            panelRect.sizeDelta = new Vector2(440, 400);
+            panelRect.sizeDelta = new Vector2(440, 422);
             var panelImage = panelRoot.GetComponent<Image>();
             panelImage.sprite = PanelSpriteFactory.CreateRoundedSprite(PanelFill, PanelBorder);
             panelImage.type = Image.Type.Sliced;
@@ -81,16 +83,31 @@ namespace DungeonCrawler.UI
 
             buttonSprite = PanelSpriteFactory.CreateRoundedSprite(new Color(0.2f, 0.2f, 0.24f), new Color(0.4f, 0.4f, 0.48f), size: 64, radius: 10, borderThickness: 3);
 
-            MakeLabel("Choose a Dungeon", 24, FontStyle.Bold, new Vector2(0, -32));
+            // Vertical layout, hand-computed so nothing overlaps (each button is 52px
+            // tall; panel sizeDelta.y is set to match this exactly -- see BuildUI's
+            // panelRect.sizeDelta above):
+            //   panel top edge      +211
+            //   title                -24  (top-anchored; label spans -24..-60 from top edge)
+            //   Abyss                 95  (top=121, bottom=69)
+            //   Frozen Crypt          31  (top=57,  bottom=5)
+            //   Sunken Ruins         -33  (top=-7,  bottom=-59)
+            //   Hardcore toggle      -97  (top=-71, bottom=-123)
+            //   Cancel              -161  (top=-135,bottom=-187)
+            //   panel bottom edge   -211
+            // Every consecutive pair of buttons is 64px apart center-to-center (52px tall
+            // + 12px clear gap), matching the ~60px rhythm the original three-button
+            // layout used; title keeps its original 30px gap above the first button.
+            MakeLabel("Choose a Dungeon", 24, FontStyle.Bold, new Vector2(0, -24));
 
-            BuildButton("The Abyss", new Vector2(0, 76), new Color(0.65f, 0.2f, 0.2f), OnAbyssClicked);
-            BuildButton("The Frozen Crypt", new Vector2(0, 16), new Color(0.25f, 0.45f, 0.65f), OnFrozenCryptClicked);
+            BuildButton("The Abyss", new Vector2(0, 95), new Color(0.65f, 0.2f, 0.2f), OnAbyssClicked);
+            BuildButton("The Frozen Crypt", new Vector2(0, 31), new Color(0.25f, 0.45f, 0.65f), OnFrozenCryptClicked);
+            BuildButton("The Sunken Ruins", new Vector2(0, -33), new Color(0.3f, 0.55f, 0.35f), OnSunkenRuinsClicked);
 
-            var hardcoreGO = BuildButton("Hardcore: OFF", new Vector2(0, -48), HardcoreOffColor, ToggleHardcore);
+            var hardcoreGO = BuildButton("Hardcore: OFF", new Vector2(0, -97), HardcoreOffColor, ToggleHardcore);
             hardcoreButtonImage = hardcoreGO.GetComponent<Image>();
             hardcoreButtonText = hardcoreGO.GetComponentInChildren<Text>();
 
-            BuildButton("Cancel", new Vector2(0, -116), new Color(0.3f, 0.3f, 0.34f), Close);
+            BuildButton("Cancel", new Vector2(0, -161), new Color(0.3f, 0.3f, 0.34f), Close);
 
             panelRoot.SetActive(false);
         }
@@ -107,6 +124,13 @@ namespace DungeonCrawler.UI
             Debug.Log("[DungeonSelectUI] Frozen Crypt button clicked");
             Close();
             onFrozenCrypt?.Invoke();
+        }
+
+        private void OnSunkenRuinsClicked()
+        {
+            Debug.Log("[DungeonSelectUI] Sunken Ruins button clicked");
+            Close();
+            onSunkenRuins?.Invoke();
         }
 
         private void MakeLabel(string text, int fontSize, FontStyle style, Vector2 anchoredPos)

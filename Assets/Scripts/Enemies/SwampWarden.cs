@@ -1,15 +1,17 @@
 using UnityEngine;
 using DungeonCrawler.Audio;
 using DungeonCrawler.Core;
-using DungeonCrawler.Loot;
 using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.Enemies
 {
-    // The abyss dungeon's final boss. Sprite: Sprites/Enemies/Abyss/abyss_final_demon.png
-    // Two phases, each with a mechanic that specifically checks one party role,
-    // per the "role-check boss template" pattern from the full scope doc.
-    public class AbyssFinalDemon : EnemyBase
+    // Sunken Ruins' boss -- same "role-check boss template" shape as AbyssFinalDemon: a
+    // Phase-1 tank-check add-spawn (Bog Lurkers instead of Imps), a Phase-2 enrage trigger
+    // (Buffer check), and a channeled telegraphed AoE special attack (a toxic cloud burst
+    // instead of a ground slam/frost nova). Its own Attack() also rolls a chance to apply
+    // Poison -- unlike the other two bosses' plain-damage Attack(), this is the Warden's
+    // signature mechanic: the boss-scale escalation of BogLurker's own Poison gimmick.
+    public class SwampWarden : EnemyBase
     {
         [Header("Phase 2 trigger")]
         public float phase2HpFraction = 0.5f;
@@ -23,8 +25,13 @@ namespace DungeonCrawler.Enemies
         public float enrageDamageMultiplier = 1.8f;
         public float enrageAttackSpeedMultiplier = 1.5f;
 
-        [Header("Special: channeled AoE slam")]
-        [Tooltip("The boss plants itself and telegraphs a ground-slam -- stand in the glowing circle when it resolves and it hurts regardless of DEF. Walking out during the channel avoids it entirely.")]
+        [Header("Signature attack: Poison")]
+        public float poisonChance = 0.4f;
+        public float poisonDuration = 5f;
+        public float poisonDamage = 4f; // a bit harder-hitting than BogLurker's own 3/tick -- boss-scale escalation of the same gimmick
+
+        [Header("Special: channeled toxic cloud burst")]
+        [Tooltip("The warden plants itself and telegraphs a toxic burst -- stand in the glowing circle when it resolves and it hurts regardless of DEF. Walking out during the channel avoids it entirely.")]
         public float specialInterval = 11f;
         public float specialChannelTime = 1.8f;
         public float specialRadius = 4.5f;
@@ -34,10 +41,13 @@ namespace DungeonCrawler.Enemies
         private float channelElapsed;
         private GameObject telegraphGO;
 
+        private static readonly Color TelegraphStart = new Color(0.2f, 0.35f, 0.1f);
+        private static readonly Color TelegraphEnd = new Color(0.65f, 0.85f, 0.25f);
+
         protected override void Awake()
         {
-            enemyName = "Abyss Demon";
-            spriteResourcePath = "Sprites/Enemies/Abyss/abyss_final_demon";
+            enemyName = "Swamp Warden";
+            spriteResourcePath = "Sprites/Enemies/Abyss/abyss_final_demon"; // no dedicated sprite yet -- green tint below carries the theme
             spriteHeight = 1.6f;
             healthBarHeight = 3.3f;
             healthBarWidth = 2.2f;
@@ -48,6 +58,9 @@ namespace DungeonCrawler.Enemies
             attackDamage = 18f;
             specialTimer = specialInterval;
             addSpawnTimer = addSpawnInterval; // was defaulting to 0 -- fired an add wave on the very first Update() frame instead of waiting out the interval
+
+            var sr = GetComponentInChildren<SpriteRenderer>();
+            if (sr != null) sr.color = new Color(0.35f, 0.55f, 0.3f);
         }
 
         protected override void Update()
@@ -95,13 +108,13 @@ namespace DungeonCrawler.Enemies
             specialTimer = specialInterval;
 
             telegraphGO = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            telegraphGO.name = "SlamTelegraph";
+            telegraphGO.name = "ToxicBurstTelegraph";
             var col = telegraphGO.GetComponent<Collider>();
             if (col != null) Destroy(col); // warning marker only -- ResolveSpecialAttack does the actual hit detection
             telegraphGO.transform.position = transform.position + Vector3.up * 0.05f;
             telegraphGO.transform.localScale = new Vector3(specialRadius * 2f, 0.01f, specialRadius * 2f);
             var renderer = telegraphGO.GetComponent<Renderer>();
-            if (renderer != null) renderer.material = new Material(Shader.Find("Standard")) { color = new Color(0.6f, 0.1f, 0.05f) };
+            if (renderer != null) renderer.material = new Material(Shader.Find("Standard")) { color = TelegraphStart };
 
             SfxLibrary.PlayAt(SfxLibrary.Warning, transform.position, 0.5f);
         }
@@ -113,7 +126,7 @@ namespace DungeonCrawler.Enemies
             {
                 float t = Mathf.Clamp01(channelElapsed / specialChannelTime);
                 var renderer = telegraphGO.GetComponent<Renderer>();
-                if (renderer != null) renderer.material.color = Color.Lerp(new Color(0.6f, 0.1f, 0.05f), new Color(1f, 0.9f, 0.2f), t);
+                if (renderer != null) renderer.material.color = Color.Lerp(TelegraphStart, TelegraphEnd, t);
             }
 
             if (channelElapsed >= specialChannelTime)
@@ -130,20 +143,15 @@ namespace DungeonCrawler.Enemies
             var hits = Physics.OverlapSphere(transform.position, specialRadius);
             foreach (var hit in hits)
             {
-                if (hit.GetComponentInParent<AbyssFinalDemon>() != null) continue; // don't hit itself
-                // ignoreDef -- a boss slam should always punish standing in it, that's the
+                if (hit.GetComponentInParent<SwampWarden>() != null) continue; // don't hit itself
+                // ignoreDef -- a boss burst should always punish standing in it, that's the
                 // entire point of making the player dodge instead of just tanking it.
                 hit.GetComponentInParent<IHealth>()?.TakeDamage(specialDamage, ignoreDef: true);
             }
 
-            ImpactBurst.Spawn(transform.position + Vector3.up, new Color(1f, 0.5f, 0.1f));
+            ImpactBurst.Spawn(transform.position + Vector3.up, new Color(0.5f, 0.75f, 0.2f));
         }
 
-        // Built the same way GameBootstrap.SpawnImp builds every other imp -- this codebase
-        // has no prefabs (see CLAUDE.md), so the field this replaced (a serialized
-        // GameObject prefab reference, always null since nothing ever assigned it) could
-        // never have worked; the whole point of this method (the boss's tank-check
-        // mechanic) was permanently dead until this was inlined directly.
         private void SpawnAdds()
         {
             // TANK CHECK: adds must be picked up off the healer/support, or the party
@@ -151,16 +159,7 @@ namespace DungeonCrawler.Enemies
             for (int i = 0; i < 2; i++)
             {
                 Vector3 offset = new Vector3(Random.Range(-2f, 2f), 0, Random.Range(-2f, 2f));
-                var go = new GameObject("Imp");
-                go.transform.position = transform.position + offset;
-                go.AddComponent<Health>();
-                go.AddComponent<StatusEffectController>();
-                go.AddComponent<ImpDemon>();
-                go.AddComponent<AggroController>();
-                var loot = go.AddComponent<LootDropper>();
-                loot.lootTable = Resources.Load<LootTable>("Data/Loot/AbyssLootTable");
-                loot.minGold = 4;
-                loot.maxGold = 8;
+                BogLurker.Spawn(transform.position + offset);
             }
         }
 
@@ -183,8 +182,23 @@ namespace DungeonCrawler.Enemies
             float dmg = attackDamage * mitigation;
             target.GetComponent<IHealth>()?.TakeDamage(dmg, ignoreDef: false);
 
-            // HEALER CHECK: phase 2 sustained damage is tuned so a healer must be
-            // actively topping the party off, not just reacting to emergencies.
+            // Its signature attack, distinct from the other two bosses' plain-damage
+            // Attack() -- a chance to stack Poison on top of the hit.
+            if (Random.value < poisonChance)
+            {
+                target.GetComponent<StatusEffectController>()?.ApplyEffect(
+                    StatusEffectType.Poison, poisonDuration, poisonDamage);
+            }
+
+            // HEALER CHECK: sustained poison damage is what makes this boss specifically
+            // test the Healer/cleanse role -- ticking DoT the party can't just tank through
+            // without active healing or a cleanse.
+        }
+
+        protected override void HandleDeath()
+        {
+            if (telegraphGO != null) Destroy(telegraphGO);
+            base.HandleDeath();
         }
     }
 }

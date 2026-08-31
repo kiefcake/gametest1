@@ -7,7 +7,7 @@ namespace DungeonCrawler.World
     // without duplicating any of that structural code. Add a case here plus an Apply*
     // Palette method and a hazard branch (see BuildRoom/BuildCircularRoom) for each new
     // dungeon theme.
-    public enum DungeonTheme { Abyss, FrozenCrypt }
+    public enum DungeonTheme { Abyss, FrozenCrypt, SunkenRuins }
 
     // A real (if crude) dungeon: five rooms in a line -- Entry, two Combat rooms, a Vault,
     // and the Boss -- joined by corridors, instead of BlockoutRoom's single flat box. Same
@@ -71,6 +71,7 @@ namespace DungeonCrawler.World
         {
             theme = dungeonTheme;
             if (theme == DungeonTheme.FrozenCrypt) ApplyFrozenCryptPalette();
+            else if (theme == DungeonTheme.SunkenRuins) ApplySunkenRuinsPalette();
 
             EntryPoint = Vector3.zero;
             CombatPoint = new Vector3(0, 0, RoomSpacing);
@@ -103,6 +104,20 @@ namespace DungeonCrawler.World
             corridorFloorColor = new Color(0.5f, 0.6f, 0.7f);
             wallColor = new Color(0.68f, 0.8f, 0.9f);
             ceilingColor = new Color(0.28f, 0.38f, 0.48f);
+        }
+
+        // Murky teal/green water and mossy stone instead of the Abyss's dark red/black or
+        // the Crypt's ice-blue/white -- brackish brown creeps into the vault floor for the
+        // "silted-up ruin" read.
+        private void ApplySunkenRuinsPalette()
+        {
+            entryFloorColor = new Color(0.22f, 0.32f, 0.28f);
+            combatFloorColor = new Color(0.14f, 0.26f, 0.22f);
+            vaultFloorColor = new Color(0.24f, 0.22f, 0.14f);
+            bossFloorColor = new Color(0.08f, 0.18f, 0.15f);
+            corridorFloorColor = new Color(0.12f, 0.2f, 0.18f);
+            wallColor = new Color(0.18f, 0.28f, 0.22f);
+            ceilingColor = new Color(0.06f, 0.12f, 0.1f);
         }
 
         private void BuildRoom(Vector3 center, Color floorColor, bool openNorth, bool openSouth, bool hazardous, bool westTunnel = false, bool platform = false)
@@ -138,6 +153,12 @@ namespace DungeonCrawler.World
                     BuildIcePatch(center + new Vector3(6f, 0, 4f), 2.5f);
                     BuildIceSpikes(center + new Vector3(-8f, 0, -3f));
                     BuildIceSpikes(center + new Vector3(5f, 0, -8f));
+                }
+                else if (theme == DungeonTheme.SunkenRuins)
+                {
+                    BuildPoisonBog(center + new Vector3(6f, 0, 4f), 2.5f);
+                    BuildReedCluster(center + new Vector3(-8f, 0, -3f));
+                    BuildReedCluster(center + new Vector3(5f, 0, -8f));
                 }
                 else
                 {
@@ -200,6 +221,12 @@ namespace DungeonCrawler.World
                 BuildIcePatch(center + new Vector3(-6f, 0, -6f), 2.5f);
                 BuildIceSpikes(center + new Vector3(-8f, 0, 5f));
                 BuildIceSpikes(center + new Vector3(6f, 0, -8f));
+            }
+            else if (theme == DungeonTheme.SunkenRuins)
+            {
+                BuildPoisonBog(center + new Vector3(-6f, 0, -6f), 2.5f);
+                BuildReedCluster(center + new Vector3(-8f, 0, 5f));
+                BuildReedCluster(center + new Vector3(6f, 0, -8f));
             }
             else
             {
@@ -349,6 +376,54 @@ namespace DungeonCrawler.World
                 spike.transform.rotation = Quaternion.Euler(Random.Range(-8f, 8f), Random.Range(0f, 360f), Random.Range(-8f, 8f));
                 spike.transform.localScale = new Vector3(0.1f, Random.Range(0.4f, 0.7f), 0.1f);
                 SetColor(spike, iceColor);
+            }
+        }
+
+        // Sunken Ruins' equivalent of BuildLavaPool/BuildIcePatch -- same periodic-damage
+        // hazard (LavaHazard is generic despite the name, just a damage-over-time trigger
+        // volume), reskinned as a sickly green/brown bog. Standing in it is still flat
+        // physical damage; the Poison *status effect* comes from BogLurker/SwampWarden
+        // attacks, not from this hazard.
+        private void BuildPoisonBog(Vector3 pos, float radius)
+        {
+            var pool = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pool.name = "PoisonBog";
+            pool.transform.SetParent(transform);
+            pool.transform.position = pos + new Vector3(0, 0.03f, 0);
+            pool.transform.localScale = new Vector3(radius * 2f, 0.03f, radius * 2f);
+            SetColor(pool, new Color(0.35f, 0.42f, 0.12f));
+
+            var glow = pool.AddComponent<PortalGlow>();
+            glow.colorA = new Color(0.25f, 0.32f, 0.08f);
+            glow.colorB = new Color(0.55f, 0.58f, 0.2f);
+            glow.speed = 0.8f;
+
+            // The Cylinder primitive ships with its own CapsuleCollider -- reused as the
+            // hazard's trigger volume rather than destroying and rebuilding one.
+            var col = pool.GetComponent<Collider>();
+            if (col != null) col.isTrigger = true;
+
+            pool.AddComponent<LavaHazard>();
+        }
+
+        // BuildBonePile/BuildIceSpikes' swamp counterpart -- tall reed/rush clusters
+        // instead of bones or ice spikes, same crude-primitives-read-instantly approach.
+        private void BuildReedCluster(Vector3 pos)
+        {
+            var reedColor = new Color(0.3f, 0.42f, 0.24f);
+            int count = Random.Range(3, 6);
+            for (int i = 0; i < count; i++)
+            {
+                var reed = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                reed.name = "Reed";
+                var col = reed.GetComponent<Collider>();
+                if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
+                reed.transform.SetParent(transform);
+                Vector3 offset = new Vector3(Random.Range(-0.5f, 0.5f), 0.1f, Random.Range(-0.5f, 0.5f));
+                reed.transform.position = pos + offset;
+                reed.transform.rotation = Quaternion.Euler(Random.Range(-6f, 6f), Random.Range(0f, 360f), Random.Range(-6f, 6f));
+                reed.transform.localScale = new Vector3(0.07f, Random.Range(0.5f, 0.85f), 0.07f);
+                SetColor(reed, reedColor);
             }
         }
 

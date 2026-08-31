@@ -142,7 +142,7 @@ namespace DungeonCrawler
             hub.GateInteractable.onInteract = () =>
             {
                 Debug.Log("[Bootstrap] Gate interact fired");
-                DungeonSelectUI.Show(EnterAbyssDungeon, EnterFrozenCrypt);
+                DungeonSelectUI.Show(EnterAbyssDungeon, EnterFrozenCrypt, EnterSunkenRuins);
             };
             WireVendors();
             WireMinigames();
@@ -321,7 +321,7 @@ namespace DungeonCrawler
                 // The entry-room gate is a long walk back from the boss room in a
                 // five-room dungeon -- an immediate exit right where the run actually
                 // ends is what "leave the dungeon" needs to mean in practice.
-                BuildBossExitGate(layout.BossPoint + new Vector3(-7f, 0, 7f));
+                BuildBossExitGate(layout.BossPoint + new Vector3(-7f, 0, 7f), "the Abyss");
             }
 
             BuildReturnGate(layout.EntryPoint);
@@ -360,7 +360,46 @@ namespace DungeonCrawler
                 SpawnVaultLoot(layout.VaultPoint);
                 SpawnFrostLichBoss(layout.BossPoint);
 
-                BuildBossExitGate(layout.BossPoint + new Vector3(-7f, 0, 7f));
+                BuildBossExitGate(layout.BossPoint + new Vector3(-7f, 0, 7f), "the Frozen Crypt");
+            }
+
+            BuildReturnGate(layout.EntryPoint);
+        }
+
+        // Same shape as EnterFrozenCrypt -- same room graph and encounter layout (via the
+        // shared DungeonLayout generator, see World.DungeonTheme), but Bog Lurkers instead
+        // of Frost Skeletons/Imps and a Swamp Warden instead of the Frost Lich/Abyss Demon.
+        // RangedImp and AbyssMage are reused as-is on the platforms/tunnel, exactly like
+        // Frozen Crypt reuses them.
+        private void EnterSunkenRuins()
+        {
+            Debug.Log("[Bootstrap] EnterSunkenRuins() called");
+            var layout = PrepareDungeonRoot("SunkenRuins", DungeonTheme.SunkenRuins, new Color(0.09f, 0.16f, 0.14f));
+
+            if (spawnAbyssEncounter)
+            {
+                SpawnBogLurker(layout.CombatPoint + new Vector3(3, 0, 2));
+                SpawnBogLurker(layout.CombatPoint + new Vector3(-3, 0, 2));
+                SpawnScurrierImp(layout.CombatPoint + new Vector3(5f, 0, -3f));
+                SpawnScurrierImp(layout.CombatPoint + new Vector3(-5f, 0, -3f));
+                SpawnRangedImp(layout.CombatPlatformPoint);
+
+                SpawnBogLurker(layout.Combat2Point + new Vector3(3.5f, 0, 2f));
+                SpawnBogLurker(layout.Combat2Point + new Vector3(-3.5f, 0, -1f));
+                SpawnRangedImp(layout.Combat2Point + new Vector3(-2f, 0, -6));
+                SpawnRangedImp(layout.Combat2Point + new Vector3(2f, 0, -6));
+                SpawnScurrierImp(layout.Combat2Point + new Vector3(6f, 0, 0));
+                SpawnAbyssMage(layout.Combat2PlatformPoint);
+
+                SpawnBogLurker(layout.TunnelPoint + new Vector3(-1.5f, 0, 1.5f));
+                SpawnBogLurker(layout.TunnelPoint + new Vector3(1.5f, 0, -1.5f));
+                SpawnRangedImp(layout.TunnelPoint + new Vector3(0, 0, -2f));
+                SpawnTunnelLoot(layout.TunnelPoint + new Vector3(0, 0, 3f));
+
+                SpawnVaultLoot(layout.VaultPoint);
+                SpawnSwampWardenBoss(layout.BossPoint);
+
+                BuildBossExitGate(layout.BossPoint + new Vector3(-7f, 0, 7f), "the Sunken Ruins");
             }
 
             BuildReturnGate(layout.EntryPoint);
@@ -370,7 +409,7 @@ namespace DungeonCrawler
         // boss's own room -- BuildReturnGate stays invisible-trigger-only since it's meant
         // to just always be sitting at the entrance, but this one is the actual payoff for
         // clearing the dungeon, so it gets a visual.
-        private void BuildBossExitGate(Vector3 pos)
+        private void BuildBossExitGate(Vector3 pos, string dungeonLabel)
         {
             var portal = GameObject.CreatePrimitive(PrimitiveType.Cube);
             portal.name = "BossExitPortal";
@@ -393,7 +432,7 @@ namespace DungeonCrawler
             col.size = new Vector3(3f, 2.4f, 1.8f);
 
             var interactable = triggerGO.AddComponent<Interactable>();
-            interactable.prompt = "Leave the Abyss (E)";
+            interactable.prompt = $"Leave {dungeonLabel} (E)";
             interactable.onInteract = ReturnToHub;
         }
 
@@ -542,6 +581,25 @@ namespace DungeonCrawler
             h.SetCurrentHP(h.maxHP);
             go.AddComponent<StatusEffectController>();
             go.AddComponent<FrostLich>();
+            go.AddComponent<AggroController>();
+            var loot = go.AddComponent<LootDropper>();
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
+            loot.minGold = 90;
+            loot.maxGold = 140;
+            loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
+        }
+
+        private void SpawnBogLurker(Vector3 pos) => BogLurker.Spawn(pos);
+
+        private void SpawnSwampWardenBoss(Vector3 pos)
+        {
+            var go = new GameObject("SwampWarden");
+            go.transform.position = pos;
+            var h = go.AddComponent<Health>();
+            h.maxHP = 1150;
+            h.SetCurrentHP(h.maxHP);
+            go.AddComponent<StatusEffectController>();
+            go.AddComponent<SwampWarden>();
             go.AddComponent<AggroController>();
             var loot = go.AddComponent<LootDropper>();
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
