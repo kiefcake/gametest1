@@ -77,7 +77,7 @@ namespace DungeonCrawler.UI
             rect.offsetMax = Vector2.zero;
             panel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.75f);
 
-            var font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             var card = BuildCard(panel.transform, new Vector2(440, 420), PauseAccent);
 

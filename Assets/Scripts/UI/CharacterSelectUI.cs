@@ -64,7 +64,7 @@ namespace DungeonCrawler.UI
             bgRect.offsetMax = Vector2.zero;
             bgGO.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.07f, 0.97f);
 
-            var font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             var titleRect = MakeAnchoredRect(canvasGO.transform, new Vector2(0.5f, 1f), new Vector2(0, -90), new Vector2(800, 100));
             var titleText = titleRect.gameObject.AddComponent<Text>();

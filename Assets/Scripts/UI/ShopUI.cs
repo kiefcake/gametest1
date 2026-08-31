@@ -102,7 +102,7 @@ namespace DungeonCrawler.UI
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
 
-            font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             panelRoot = new GameObject("ShopPanel", typeof(RectTransform), typeof(Image));
             panelRoot.transform.SetParent(canvasGO.transform, false);

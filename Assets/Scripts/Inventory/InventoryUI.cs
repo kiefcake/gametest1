@@ -148,7 +148,7 @@ namespace DungeonCrawler.Inventory
                 panelImage.color = Color.white; // the sprite already carries its own fill color
             }
 
-            var font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             var titleGO = new GameObject("Title", typeof(RectTransform), typeof(Text));
             titleGO.transform.SetParent(panelRoot.transform, false);
             var titleRect = titleGO.GetComponent<RectTransform>();
@@ -396,7 +396,7 @@ namespace DungeonCrawler.Inventory
             labelRect.anchoredPosition = new Vector2(0, 4);
             labelRect.sizeDelta = new Vector2(90, 16);
             var labelText = labelGO.GetComponent<Text>();
-            labelText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            labelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             labelText.fontSize = 12;
             labelText.alignment = TextAnchor.MiddleCenter;
             labelText.color = new Color(0.75f, 0.75f, 0.8f);

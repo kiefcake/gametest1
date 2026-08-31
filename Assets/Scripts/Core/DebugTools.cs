@@ -118,7 +118,7 @@ namespace DungeonCrawler.Core
             rect.anchoredPosition = new Vector2(20, 20);
             rect.sizeDelta = new Vector2(760, 24);
             statusText = rectGO.GetComponent<Text>();
-            statusText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            statusText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             statusText.fontSize = 14;
             statusText.alignment = TextAnchor.LowerLeft;
             statusText.color = new Color(1f, 1f, 1f, 0.55f);

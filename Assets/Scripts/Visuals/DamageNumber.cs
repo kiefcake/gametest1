@@ -49,7 +49,7 @@ namespace DungeonCrawler.Visuals
             textRect.offsetMax = Vector2.zero;
 
             var text = textGO.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = 40;
             text.fontStyle = FontStyle.Bold;
             text.alignment = TextAnchor.MiddleCenter;

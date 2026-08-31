@@ -66,7 +66,7 @@ namespace DungeonCrawler.UI
             hud.player = player;
             hud.wallet = wallet;
             hud.downedRecovery = downedRecovery;
-            hud.uiFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            hud.uiFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             hud.BuildUI();
             if (player.health != null) player.health.OnDamaged += hud.OnPlayerDamaged;
             return hud;

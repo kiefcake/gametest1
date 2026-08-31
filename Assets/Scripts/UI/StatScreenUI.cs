@@ -96,7 +96,7 @@ namespace DungeonCrawler.UI
             panelImage.type = Image.Type.Sliced;
             panelImage.color = Color.white;
 
-            var font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             var titleGO = new GameObject("Title", typeof(RectTransform), typeof(Text));
             titleGO.transform.SetParent(panel.transform, false);

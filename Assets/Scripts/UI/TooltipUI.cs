@@ -73,7 +73,7 @@ namespace DungeonCrawler.UI
             textRect.offsetMax = new Vector2(-10, -10);
 
             text = textGO.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = 15;
             text.color = Color.white;
             text.alignment = TextAnchor.UpperLeft;
