@@ -11,6 +11,11 @@ namespace DungeonCrawler.Core
         // normal gameplay path.
         public bool invulnerable = false;
 
+        // Set by PlayerCharacter.Awake -- lets TakeDamage apply player-only run modifiers
+        // (RunModifiers.DoubleDamageTaken) without EnemyBase's identical Health component
+        // needing to know or care about them.
+        public bool isPlayer = false;
+
         // Private setter -- external code should go through TakeDamage/Heal/Revive/
         // SetCurrentHP rather than mutating HP directly, so nothing can bypass the
         // downed check or overheal logic.
@@ -73,6 +78,8 @@ namespace DungeonCrawler.Core
                 if (statusController.HasEffect(StatusEffectType.Fortified))
                     mitigated *= 1f - statusController.GetMagnitude(StatusEffectType.Fortified);
             }
+
+            if (isPlayer && RunModifiers.DoubleDamageTaken) mitigated *= 2f;
 
             CurrentHP -= mitigated;
             OnDamaged?.Invoke(mitigated);

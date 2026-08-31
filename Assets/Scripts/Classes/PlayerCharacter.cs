@@ -51,6 +51,7 @@ namespace DungeonCrawler.Classes
             abilityCaster = GetComponent<AbilityCaster>();
             statusController.health = health;
             health.statusController = statusController;
+            health.isPlayer = true; // gates RunModifiers.DoubleDamageTaken -- enemies share this same Health class
 
             gameObject.AddComponent<HealthVFX>(); // floating damage/heal numbers + hit flash
 

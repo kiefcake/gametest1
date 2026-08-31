@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using DungeonCrawler.Core;
 using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.UI
@@ -16,9 +17,13 @@ namespace DungeonCrawler.UI
         private Sprite buttonSprite;
         private System.Action onAbyss;
         private System.Action onFrozenCrypt;
+        private Image hardcoreButtonImage;
+        private Text hardcoreButtonText;
 
         private static readonly Color PanelFill = new Color(0.08f, 0.08f, 0.11f, 0.97f);
         private static readonly Color PanelBorder = new Color(0.5f, 0.2f, 0.65f, 1f);
+        private static readonly Color HardcoreOffColor = new Color(0.3f, 0.3f, 0.34f);
+        private static readonly Color HardcoreOnColor = new Color(0.65f, 0.2f, 0.2f);
 
         public static void Show(System.Action enterAbyss, System.Action enterFrozenCrypt)
         {
@@ -37,6 +42,7 @@ namespace DungeonCrawler.UI
             onAbyss = enterAbyss;
             onFrozenCrypt = enterFrozenCrypt;
 
+            RefreshHardcoreButton();
             panelRoot.SetActive(true);
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
@@ -60,14 +66,14 @@ namespace DungeonCrawler.UI
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
 
-            font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             panelRoot = new GameObject("SelectPanel", typeof(RectTransform), typeof(Image));
             panelRoot.transform.SetParent(canvasGO.transform, false);
             var panelRect = panelRoot.GetComponent<RectTransform>();
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
-            panelRect.sizeDelta = new Vector2(440, 340);
+            panelRect.sizeDelta = new Vector2(440, 400);
             var panelImage = panelRoot.GetComponent<Image>();
             panelImage.sprite = PanelSpriteFactory.CreateRoundedSprite(PanelFill, PanelBorder);
             panelImage.type = Image.Type.Sliced;
@@ -77,9 +83,14 @@ namespace DungeonCrawler.UI
 
             MakeLabel("Choose a Dungeon", 24, FontStyle.Bold, new Vector2(0, -32));
 
-            BuildButton("The Abyss", new Vector2(0, 60), new Color(0.65f, 0.2f, 0.2f), OnAbyssClicked);
-            BuildButton("The Frozen Crypt", new Vector2(0, -4), new Color(0.25f, 0.45f, 0.65f), OnFrozenCryptClicked);
-            BuildButton("Cancel", new Vector2(0, -68), new Color(0.3f, 0.3f, 0.34f), Close);
+            BuildButton("The Abyss", new Vector2(0, 76), new Color(0.65f, 0.2f, 0.2f), OnAbyssClicked);
+            BuildButton("The Frozen Crypt", new Vector2(0, 16), new Color(0.25f, 0.45f, 0.65f), OnFrozenCryptClicked);
+
+            var hardcoreGO = BuildButton("Hardcore: OFF", new Vector2(0, -48), HardcoreOffColor, ToggleHardcore);
+            hardcoreButtonImage = hardcoreGO.GetComponent<Image>();
+            hardcoreButtonText = hardcoreGO.GetComponentInChildren<Text>();
+
+            BuildButton("Cancel", new Vector2(0, -116), new Color(0.3f, 0.3f, 0.34f), Close);
 
             panelRoot.SetActive(false);
         }
@@ -117,7 +128,7 @@ namespace DungeonCrawler.UI
             t.text = text;
         }
 
-        private void BuildButton(string label, Vector2 anchoredPos, Color color, UnityEngine.Events.UnityAction onClick)
+        private GameObject BuildButton(string label, Vector2 anchoredPos, Color color, UnityEngine.Events.UnityAction onClick)
         {
             var go = new GameObject(label + "Button", typeof(RectTransform), typeof(Image), typeof(Button));
             go.transform.SetParent(panelRoot.transform, false);
@@ -147,6 +158,23 @@ namespace DungeonCrawler.UI
             text.text = label;
 
             go.GetComponent<Button>().onClick.AddListener(onClick);
+            return go;
+        }
+
+        // Prototype run modifier (see Core.RunModifiers) -- toggled here rather than in
+        // the hub itself so it reads as "a choice you make right before diving in," same
+        // spot a difficulty select would live if more modifiers get added later.
+        private void ToggleHardcore()
+        {
+            RunModifiers.DoubleDamageTaken = !RunModifiers.DoubleDamageTaken;
+            RefreshHardcoreButton();
+        }
+
+        private void RefreshHardcoreButton()
+        {
+            bool on = RunModifiers.DoubleDamageTaken;
+            hardcoreButtonText.text = on ? "Hardcore: ON (2x dmg taken)" : "Hardcore: OFF";
+            hardcoreButtonImage.color = on ? HardcoreOnColor : HardcoreOffColor;
         }
     }
 }

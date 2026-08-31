@@ -43,6 +43,7 @@ namespace DungeonCrawler
         private void BeginRun(TestClass chosenClass)
         {
             classToTest = chosenClass;
+            RunModifiers.ResetAll(); // a fresh character select starts a fresh run -- modifiers don't carry over
 
             var hubGO = new GameObject("Hub");
             hub = hubGO.AddComponent<HubLayout>();
