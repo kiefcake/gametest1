@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-A Unity 2020.3.30f1 (Built-in Render Pipeline) first-person co-op dungeon crawler
+A Unity 6000.3.23f1 (Built-in Render Pipeline) first-person co-op dungeon crawler
 prototype. Solo-testable by design — every system that would eventually be multiplayer
 (revive, party) has a documented solo fallback rather than requiring a second player to
 exercise. `full-game-scope.md` is the long-term design doc (8-10 dungeons, 4 classes,
@@ -22,7 +22,7 @@ workflow, run after every non-trivial change:
    `CloseMainWindow()`, falling back to `Stop-Process -Force` if it's stuck on a modal
    dialog — e.g. a Package Manager error).
 2. Delete `%LOCALAPPDATA%\Unity\Editor\Editor.log` so the next run's log is unambiguous.
-3. Relaunch: `Start-Process "C:\Program Files\Unity\Hub\Editor\2020.3.30f1\Editor\Unity.exe" -ArgumentList '-projectPath "<repo path>"'`.
+3. Relaunch: `Start-Process "C:\Program Files\Unity\Hub\Editor\6000.3.23f1\Editor\Unity.exe" -ArgumentList '-projectPath "<repo path>"'`.
 4. Poll the log for the line `Refresh completed` (compilation is done once this appears).
 5. Grep the log for `error CS\d+` (0 matches = clean compile) and for `Exception|No script asset` (excluding `ExceptionUtils`, which is a false-positive match on the class name).
 
@@ -50,10 +50,29 @@ writes to two files under `Logs/` (gitignored):
   the Console.
 
 Two attempts at third-party Unity MCP servers (`ozankasikci/unity-editor-mcp`,
-`akiojin/unity-mcp-server`) both failed: despite documentation claiming Unity 2020.3 LTS
-support, one had real Editor-API drift (`PrefabStageUtility` namespace, a newer
-`string.Contains` overload) and the other's own `package.json` hard-requires Unity 6000.0.
-Don't re-attempt either without checking upstream has actually fixed version compatibility.
+`akiojin/unity-mcp-server`) both failed against Unity 2020.3: despite documentation
+claiming Unity 2020.3 LTS support, one had real Editor-API drift (`PrefabStageUtility`
+namespace, a newer `string.Contains` overload) and the other's own `package.json`
+hard-requires Unity 6000.0. This project was later upgraded to Unity 6000.3.23f1
+specifically to unlock working MCP server options (2020.3 LTS is no longer installable
+via Unity Hub at all). `CoderGamester/mcp-unity` is now installed
+(`Packages/manifest.json`, git-URL dependency) and configured in the project-root
+`.mcp.json` — it resolves and builds cleanly against Unity 6000.3.23f1. Its README
+claims a "Unity 6+" requirement but the package's own `package.json` says `"unity":
+"2022.3"` (verify actual `package.json` fields over README prose for any Unity MCP
+package — both prior failures and this success were each discovered by checking the
+manifest directly, not the docs). Two things to know about it:
+- **It requires an interactive Editor session, not batch mode.** The Unity-side
+  WebSocket bridge (`Editor/UnityBridge/McpUnityServer.cs`) only auto-starts when Unity
+  is open normally; `-batchmode` disables it unless `AllowBatchModeServer` is set in
+  `ProjectSettings/McpUnitySettings.json`. The offline batch-mode compile-check workflow
+  above doesn't exercise or need it.
+  - **The resolved package path in `.mcp.json` embeds a content hash**
+  (`Library/PackageCache/com.gamelovers.mcp-unity@<hash>/...`) that changes whenever the
+  package is re-resolved (e.g. after a Unity version bump or a Package Manager cache
+  clear). If MCP tool calls start failing with a "file not found" style error, check
+  whether the actual folder under `Library/PackageCache/` still matches the hash in
+  `.mcp.json` and update the path if not.
 
 ## Architecture
 
@@ -111,6 +130,11 @@ helpers), `Party` (revive, currently unused in solo play).
 
 ### Known sharp edges (already hit once, worth not re-discovering)
 
+- **`FindObjectOfType`/`FindObjectsOfType` are deprecated in Unity 6** — use
+  `FindFirstObjectByType<T>()` (single) or `FindObjectsByType<T>(FindObjectsSortMode.None)`
+  (multiple; `.None` avoids an unnecessary sort cost the old API didn't have). Every call
+  site in this codebase was already migrated during the Unity 6000.3.23f1 upgrade — use
+  the new APIs in any new code rather than reintroducing the old ones.
 - **Unity serializes enums as raw ints in `.asset` YAML.** Inserting a new enum value
   anywhere but the end silently reassigns every value after it on every already-saved
   asset (`Inventory/ItemData.cs`'s `ItemCategory` has a comment scar from this — `Ring`
