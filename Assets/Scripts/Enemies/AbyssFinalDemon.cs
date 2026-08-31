@@ -1,6 +1,7 @@
 using UnityEngine;
 using DungeonCrawler.Audio;
 using DungeonCrawler.Core;
+using DungeonCrawler.Loot;
 using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.Enemies
@@ -15,7 +16,6 @@ namespace DungeonCrawler.Enemies
         private bool inPhase2 = false;
 
         [Header("Phase 1: add spawns (Tank check)")]
-        public GameObject impPrefab;
         public float addSpawnInterval = 12f;
         private float addSpawnTimer;
 
@@ -138,15 +138,28 @@ namespace DungeonCrawler.Enemies
             ImpactBurst.Spawn(transform.position + Vector3.up, new Color(1f, 0.5f, 0.1f));
         }
 
+        // Built the same way GameBootstrap.SpawnImp builds every other imp -- this codebase
+        // has no prefabs (see CLAUDE.md), so the field this replaced (a serialized
+        // GameObject prefab reference, always null since nothing ever assigned it) could
+        // never have worked; the whole point of this method (the boss's tank-check
+        // mechanic) was permanently dead until this was inlined directly.
         private void SpawnAdds()
         {
             // TANK CHECK: adds must be picked up off the healer/support, or the party
             // takes chip damage from multiple directions at once.
-            if (impPrefab == null) return;
             for (int i = 0; i < 2; i++)
             {
                 Vector3 offset = new Vector3(Random.Range(-2f, 2f), 0, Random.Range(-2f, 2f));
-                Instantiate(impPrefab, transform.position + offset, Quaternion.identity);
+                var go = new GameObject("Imp");
+                go.transform.position = transform.position + offset;
+                go.AddComponent<Health>();
+                go.AddComponent<StatusEffectController>();
+                go.AddComponent<ImpDemon>();
+                go.AddComponent<AggroController>();
+                var loot = go.AddComponent<LootDropper>();
+                loot.lootTable = Resources.Load<LootTable>("Data/Loot/AbyssLootTable");
+                loot.minGold = 4;
+                loot.maxGold = 8;
             }
         }
 
