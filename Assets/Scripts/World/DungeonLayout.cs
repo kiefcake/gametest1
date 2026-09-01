@@ -141,7 +141,7 @@ namespace DungeonCrawler.World
             BuildWallOrDoor(center, -roomDepth / 2f, openSouth);
 
             if (buildCeiling) BuildCeiling(center);
-            if (buildPillars || buildTorches) BuildRoomDecor(center);
+            if (buildPillars || buildTorches) BuildRoomDecor(center, platform);
 
             // Entry stays a clean, calm transition room -- lava/bones are reserved for the
             // rooms that are actually fights, so the abyss theming reads as "danger zone,"
@@ -446,7 +446,13 @@ namespace DungeonCrawler.World
         // Four corner pillars plus torches on two opposite ones -- breaks up what would
         // otherwise be a flat empty box, and gives every room actual light sources instead
         // of relying purely on the single scene-wide directional light.
-        private void BuildRoomDecor(Vector3 center)
+        //
+        // skipSouthEastPillar is set for any room with a platform (see the platform block
+        // below, always placed in the south-east corner): a solid, full-height pillar
+        // there sat almost exactly on top of one of the platform's support legs (both
+        // within ~0.3 units of the same corner), a real full-collider obstruction tucked
+        // under/behind the platform that read as an inexplicable "invisible" wall.
+        private void BuildRoomDecor(Vector3 center, bool skipSouthEastPillar = false)
         {
             float inset = 2.2f;
             Vector3[] corners =
@@ -456,10 +462,11 @@ namespace DungeonCrawler.World
                 center + new Vector3(roomWidth / 2f - inset, 0, -(roomDepth / 2f - inset)),
                 center + new Vector3(-(roomWidth / 2f - inset), 0, -(roomDepth / 2f - inset)),
             };
+            const int southEastIndex = 2;
 
             for (int i = 0; i < corners.Length; i++)
             {
-                if (buildPillars) BuildPillar(corners[i]);
+                if (buildPillars && !(skipSouthEastPillar && i == southEastIndex)) BuildPillar(corners[i]);
                 if (buildTorches && i % 2 == 0) BuildTorch(corners[i] + new Vector3(0, 1.1f, 0));
             }
         }

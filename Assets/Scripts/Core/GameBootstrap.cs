@@ -32,6 +32,7 @@ namespace DungeonCrawler
         private Inventory.InventorySystem playerInventory;
         private PlayerWallet wallet;
         private Vector3 hubEntryPoint;
+        private Vector3 currentAreaEntryPoint; // wherever TeleportPlayer last put the player -- see FallRecovery
         private GameObject dungeonRoot;
         private HubLayout hub;
 
@@ -98,6 +99,7 @@ namespace DungeonCrawler
             playerGO.AddComponent<PlayerDash>(); // Left Shift -- directional dodge burst, goes through CharacterController so it can't punch through walls
             var downedRecovery = playerGO.AddComponent<DownedRecovery>(); // solo safety net -- no second player exists to proximity-revive a downed player, see DownedRecovery
             downedRecovery.onRunFailed = RespawnAfterDefeat;
+            playerGO.AddComponent<FallRecovery>().onFellOutOfWorld = RecoverFromFall; // geometry-seam safety net -- see FallRecovery
 
             // First-person: camera parented at eye height, mouse-look yaws the player body
             // (so movement turns with it) and pitches only the camera. The player's own
@@ -499,6 +501,20 @@ namespace DungeonCrawler
             if (controller != null) controller.enabled = false;
             playerGO.transform.position = pos;
             if (controller != null) controller.enabled = true;
+
+            // Every call site here IS a "safe landing spot" (hub entry, dungeon entry,
+            // post-defeat hub return) -- recording it here means FallRecovery always has
+            // somewhere sane to snap back to, without threading it through separately.
+            currentAreaEntryPoint = pos;
+        }
+
+        // Called by FallRecovery when the player drops below the geometry entirely (a
+        // wall/floor/ramp seam gap somewhere) -- snap back to wherever they last validly
+        // arrived rather than leaving them free-falling forever. Not a failure state (no
+        // HP loss): the geometry let them down, not the other way around.
+        private void RecoverFromFall()
+        {
+            TeleportPlayer(currentAreaEntryPoint);
         }
 
         private void SpawnImp(Vector3 pos, bool spiked)
