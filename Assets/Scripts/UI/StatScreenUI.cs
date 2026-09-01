@@ -59,11 +59,11 @@ namespace DungeonCrawler.UI
                 bool maxed = player.Stats.IsMaxed(stat);
                 if (maxed) maxedCount++;
 
-                statTexts[i].text = $"{stat,-4} {val,6:0.#}   [{potions}/5]";
+                statTexts[i].text = $"{stat,-4} {val,6:0.#}   [{potions}/{StatBlock.MAX_POTIONS_PER_STAT}]";
                 statTexts[i].color = maxed ? MaxedTextColor : new Color(0.9f, 0.9f, 0.9f);
 
                 var max = barFills[i].anchorMax;
-                max.x = Mathf.Clamp01(potions / 5f);
+                max.x = Mathf.Clamp01((float)potions / StatBlock.MAX_POTIONS_PER_STAT);
                 barFills[i].anchorMax = max;
                 barImages[i].color = maxed ? MaxedBarColor : BarColor;
             }
