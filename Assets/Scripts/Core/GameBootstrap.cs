@@ -36,6 +36,14 @@ namespace DungeonCrawler
         private GameObject dungeonRoot;
         private HubLayout hub;
 
+        // Which camps have already been cleared this run -- survives the open world's own
+        // Destroy(dungeonRoot) (the camps live inside it, this doesn't) so beating one
+        // camp then entering a different biome's dungeon doesn't undo it: without this,
+        // leaving via any camp portal destroyed the whole OpenWorld GameObject including
+        // the OTHER two already-earned portals, forcing a full re-clear of biomes the
+        // player had already finished.
+        private bool wastesCleared, frostlandsCleared, marshlandsCleared;
+
         private void Start()
         {
             CharacterSelectUI.Show(BeginRun);
@@ -45,6 +53,7 @@ namespace DungeonCrawler
         {
             classToTest = chosenClass;
             RunModifiers.ResetAll(); // a fresh character select starts a fresh run -- modifiers don't carry over
+            wastesCleared = frostlandsCleared = marshlandsCleared = false;
 
             var hubGO = new GameObject("Hub");
             hub = hubGO.AddComponent<HubLayout>();
@@ -141,11 +150,7 @@ namespace DungeonCrawler
             PauseMenuUI.Build(); // toggle with Escape -- owns cursor lock/timeScale pausing
             DebugTools.Build(player, wallet); // F1-F5 testing hotkeys -- see DebugTools for the list
 
-            hub.GateInteractable.onInteract = () =>
-            {
-                Debug.Log("[Bootstrap] Gate interact fired");
-                DungeonSelectUI.Show(EnterAbyssDungeon, EnterFrozenCrypt, EnterSunkenRuins);
-            };
+            hub.GateInteractable.onInteract = EnterOpenWorld;
             WireVendors();
             WireMinigames();
 
@@ -280,6 +285,160 @@ namespace DungeonCrawler
             RenderSettings.fogEndDistance = 55f;
 
             return layout;
+        }
+
+        // Replaces the old DungeonSelectUI portal -- occupies the exact same reusable
+        // dungeonRoot slot PrepareDungeonRoot builds dungeons into, so entering any of the
+        // three camp portals below tears the open world down via the same
+        // Destroy(dungeonRoot) call at the top of PrepareDungeonRoot, no new teardown logic
+        // needed. Open air, not a dungeon -- no fog, and geometry building (OpenWorldLayout)
+        // stays as separated from spawning as DungeonLayout already is: this method owns
+        // every enemy/portal placed in the world, the layout only hands back points.
+        private void EnterOpenWorld()
+        {
+            Debug.Log("[Bootstrap] EnterOpenWorld() called");
+            if (dungeonRoot != null) Destroy(dungeonRoot);
+
+            dungeonRoot = new GameObject("OpenWorld");
+            var world = dungeonRoot.AddComponent<OpenWorldLayout>();
+            TeleportPlayer(world.EntryPoint);
+            RenderSettings.fog = false; // open air out here, not an enclosed dungeon
+
+            PopulateWastes(world.Wastes);
+            PopulateFrostlands(world.Frostlands);
+            PopulateMarshlands(world.Marshlands);
+
+            BuildReturnGate(world.EntryPoint);
+        }
+
+        // Wastes trash alternates regular/scurrier imps across its roam points, spiked imps
+        // guard the camp, and the camp's own chief is a scaled-up spiked ImpDemon -- killing
+        // it opens a portal straight to the Abyss.
+        private void PopulateWastes(OpenWorldLayout.BiomeZone zone)
+        {
+            if (wastesCleared)
+            {
+                BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterAbyssDungeon);
+                return;
+            }
+
+            for (int i = 0; i < zone.roamPoints.Length; i++)
+            {
+                if (i % 2 == 0) SpawnImp(zone.roamPoints[i], false);
+                else SpawnScurrierImp(zone.roamPoints[i]);
+            }
+            foreach (var p in zone.guardPoints) SpawnImp(p, true);
+
+            SpawnBanditMiniboss<ImpDemon>(zone.minibossPoint, 400f, 1.8f,
+                () => { wastesCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterAbyssDungeon); },
+                imp => imp.ApplyVariant(true));
+        }
+
+        // Frostlands trash/guards/chief are all Frost Skeletons -- killing the chief opens a
+        // portal to the Frozen Crypt.
+        private void PopulateFrostlands(OpenWorldLayout.BiomeZone zone)
+        {
+            if (frostlandsCleared)
+            {
+                BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterFrozenCrypt);
+                return;
+            }
+
+            foreach (var p in zone.roamPoints) SpawnFrostSkeleton(p);
+            foreach (var p in zone.guardPoints) SpawnFrostSkeleton(p);
+
+            SpawnBanditMiniboss<FrostSkeleton>(zone.minibossPoint, 400f, 1.8f,
+                () => { frostlandsCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterFrozenCrypt); });
+        }
+
+        // Marshlands trash/guards/chief are all Bog Lurkers -- killing the chief opens a
+        // portal to the Sunken Ruins.
+        private void PopulateMarshlands(OpenWorldLayout.BiomeZone zone)
+        {
+            if (marshlandsCleared)
+            {
+                BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterSunkenRuins);
+                return;
+            }
+
+            foreach (var p in zone.roamPoints) SpawnBogLurker(p);
+            foreach (var p in zone.guardPoints) SpawnBogLurker(p);
+
+            SpawnBanditMiniboss<BogLurker>(zone.minibossPoint, 400f, 1.8f,
+                () => { marshlandsCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterSunkenRuins); });
+        }
+
+        // A single generic "bandit chief" builder shared by all three biomes -- same
+        // Health/StatusEffectController/AggroController/LootDropper wiring the SpawnImp-
+        // family helpers below already use, just scaled up and handed a death callback
+        // instead of nothing. The optional configure callback runs right after
+        // AddComponent<T>() and before the stat overrides below, so it can set anything an
+        // explicit post-AddComponent method exposes (e.g. ImpDemon.ApplyVariant(true) for
+        // the Wastes chief) without that work getting clobbered by the flat maxHp/damage
+        // override that follows.
+        private void SpawnBanditMiniboss<T>(Vector3 pos, float maxHp, float damageMultiplier, System.Action onDefeated, System.Action<T> configure = null) where T : EnemyBase
+        {
+            var go = new GameObject(typeof(T).Name + "Chief");
+            go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
+            go.transform.localScale = Vector3.one * 1.35f; // visually reads as tougher than the regular version
+            var h = go.AddComponent<Health>();
+            go.AddComponent<StatusEffectController>();
+            var enemy = go.AddComponent<T>();
+            configure?.Invoke(enemy);
+            // Setting these AFTER configure so the flat override always wins regardless of
+            // what configure (or T's own Awake()) did -- e.g. the miniboss's HP is always
+            // exactly maxHp, not whatever ImpDemon.ApplyVariant's 1.3x bump computed.
+            enemy.attackDamage *= damageMultiplier;
+            h.maxHP = maxHp;
+            h.SetCurrentHP(maxHp);
+            go.AddComponent<AggroController>();
+            var loot = go.AddComponent<LootDropper>();
+            loot.lootTable = Resources.Load<LootTable>("Data/Loot/AbyssLootTable"); // reuse the trash table, not the boss table -- this is a miniboss, not a dungeon boss
+            loot.minGold = 25;
+            loot.maxGold = 45;
+            h.OnDeath += () => onDefeated?.Invoke();
+        }
+
+        // Same visual/Interactable shape as BuildBossExitGate, but colored to match the
+        // target dungeon and wired to actually enter it instead of returning to the hub.
+        // This is what each camp miniboss's onDefeated callback builds once it dies --
+        // it doesn't exist beforehand, so the dungeon stays locked until its camp is cleared.
+        private void BuildDungeonPortal(Vector3 pos, string dungeonLabel, System.Action enterDungeon)
+        {
+            Color portalColor = dungeonLabel switch
+            {
+                "The Wastes" => new Color(0.9f, 0.35f, 0.1f),
+                "The Frostlands" => new Color(0.35f, 0.75f, 1f),
+                "The Marshlands" => new Color(0.3f, 0.85f, 0.5f),
+                _ => new Color(0.6f, 0.15f, 0.75f),
+            };
+            Color glowA = new Color(portalColor.r * 0.7f, portalColor.g * 0.7f, portalColor.b * 0.7f);
+            Color glowB = Color.Lerp(portalColor, Color.white, 0.35f);
+
+            var portal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            portal.name = "DungeonPortal";
+            var portalCol = portal.GetComponent<Collider>();
+            if (portalCol != null) Destroy(portalCol);
+            portal.transform.SetParent(dungeonRoot.transform);
+            portal.transform.position = pos + new Vector3(0, 1.6f, 0);
+            portal.transform.localScale = new Vector3(2.2f, 3.2f, 0.15f);
+            var renderer = portal.GetComponent<Renderer>();
+            if (renderer != null) renderer.material = new Material(Shader.Find("Standard")) { color = portalColor };
+            var glow = portal.AddComponent<PortalGlow>();
+            glow.colorA = glowA;
+            glow.colorB = glowB;
+
+            var triggerGO = new GameObject("DungeonPortalTrigger");
+            triggerGO.transform.SetParent(dungeonRoot.transform);
+            triggerGO.transform.position = pos + new Vector3(0, 1f, -1.2f);
+            var col = triggerGO.AddComponent<BoxCollider>();
+            col.isTrigger = true;
+            col.size = new Vector3(3f, 2.4f, 1.8f);
+
+            var interactable = triggerGO.AddComponent<Interactable>();
+            interactable.prompt = $"Enter {dungeonLabel} (E)";
+            interactable.onInteract = enterDungeon;
         }
 
         private void EnterAbyssDungeon()
@@ -451,7 +610,7 @@ namespace DungeonCrawler
             if (pool.Count == 0) return;
 
             var pick = pool[Random.Range(0, pool.Count)];
-            Chest.Spawn(pos, new List<Inventory.ItemData> { pick });
+            Chest.Spawn(pos, new List<Inventory.ItemData> { pick }).transform.SetParent(dungeonRoot.transform);
         }
 
         private void BuildReturnGate(Vector3 entryPoint)
@@ -521,10 +680,11 @@ namespace DungeonCrawler
         {
             var go = new GameObject(spiked ? "SpikedImp" : "Imp");
             go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
             go.AddComponent<Health>();
             go.AddComponent<StatusEffectController>();
             var imp = go.AddComponent<ImpDemon>();
-            imp.isSpikedVariant = spiked;
+            imp.ApplyVariant(spiked);
             go.AddComponent<AggroController>();
             var loot = go.AddComponent<LootDropper>();
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
@@ -536,6 +696,7 @@ namespace DungeonCrawler
         {
             var go = new GameObject("ImpShaman");
             go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
             go.AddComponent<Health>();
             go.AddComponent<StatusEffectController>();
             go.AddComponent<RangedImp>();
@@ -550,6 +711,7 @@ namespace DungeonCrawler
         {
             var go = new GameObject("ImpScurrier");
             go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
             go.AddComponent<Health>();
             go.AddComponent<StatusEffectController>();
             go.AddComponent<ScurrierImp>();
@@ -564,6 +726,7 @@ namespace DungeonCrawler
         {
             var go = new GameObject("AbyssMage");
             go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
             go.AddComponent<Health>();
             go.AddComponent<StatusEffectController>();
             go.AddComponent<AbyssMage>();
@@ -578,6 +741,7 @@ namespace DungeonCrawler
         {
             var go = new GameObject("FrostSkeleton");
             go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
             go.AddComponent<Health>();
             go.AddComponent<StatusEffectController>();
             go.AddComponent<FrostSkeleton>();
@@ -592,6 +756,7 @@ namespace DungeonCrawler
         {
             var go = new GameObject("FrostLich");
             go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
             var h = go.AddComponent<Health>();
             h.maxHP = 1100;
             h.SetCurrentHP(h.maxHP);
@@ -605,12 +770,13 @@ namespace DungeonCrawler
             loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
         }
 
-        private void SpawnBogLurker(Vector3 pos) => BogLurker.Spawn(pos);
+        private void SpawnBogLurker(Vector3 pos) => BogLurker.Spawn(pos).transform.SetParent(dungeonRoot.transform);
 
         private void SpawnSwampWardenBoss(Vector3 pos)
         {
             var go = new GameObject("SwampWarden");
             go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
             var h = go.AddComponent<Health>();
             h.maxHP = 1150;
             h.SetCurrentHP(h.maxHP);
@@ -628,6 +794,7 @@ namespace DungeonCrawler
         {
             var go = new GameObject("AbyssFinalDemon");
             go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
             var h = go.AddComponent<Health>();
             h.maxHP = 1200;
             h.SetCurrentHP(h.maxHP);
@@ -663,7 +830,7 @@ namespace DungeonCrawler
                 pool.RemoveAt(idx);
             }
 
-            Chest.Spawn(pos, picks);
+            Chest.Spawn(pos, picks).transform.SetParent(dungeonRoot.transform);
         }
     }
 }
