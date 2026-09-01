@@ -1,0 +1,51 @@
+# Material library for demon_imp.obj
+# Flat matte PBR, no maps — matches the project style guide.
+# Place next to the .obj; add "mtllib demon_imp.mtl" as the first line of the .obj if missing.
+
+newmtl imp_skin
+Ka 0.000 0.000 0.000
+Kd 0.620 0.208 0.149
+Ks 0.120 0.120 0.120
+Ns 22.0
+d 1.0
+illum 2
+
+newmtl imp_belly
+Ka 0.000 0.000 0.000
+Kd 0.788 0.439 0.353
+Ks 0.100 0.100 0.100
+Ns 16.0
+d 1.0
+illum 2
+
+newmtl horn
+Ka 0.000 0.000 0.000
+Kd 0.863 0.812 0.706
+Ks 0.220 0.220 0.220
+Ns 48.0
+d 1.0
+illum 2
+
+newmtl claw
+Ka 0.000 0.000 0.000
+Kd 0.165 0.133 0.161
+Ks 0.300 0.300 0.300
+Ns 64.0
+d 1.0
+illum 2
+
+newmtl eye
+Ka 0.100 0.075 0.010
+Kd 0.941 0.773 0.227
+Ks 0.400 0.400 0.400
+Ns 110.0
+d 1.0
+illum 2
+
+newmtl wing_membrane
+Ka 0.000 0.000 0.000
+Kd 0.369 0.165 0.149
+Ks 0.060 0.060 0.060
+Ns 10.0
+d 1.0
+illum 2

@@ -34,6 +34,7 @@
 *.mp3 binary
 *.ogg binary
 *.fbx binary
+*.obj binary
 *.dll binary
 *.exe binary
 *.ttf binary

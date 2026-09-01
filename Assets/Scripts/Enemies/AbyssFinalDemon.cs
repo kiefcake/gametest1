@@ -34,12 +34,19 @@ namespace DungeonCrawler.Enemies
         private float channelElapsed;
         private GameObject telegraphGO;
 
+        // Real 3D model instead of the billboard sprite every other enemy uses -- see
+        // AttachVisual() below. spriteResourcePath is kept as AttachVisual()'s fallback if
+        // the model resource ever fails to load, so this line still matters.
+        private const string DemonModelResourcePath = "Models/Bosses/demon_imp";
+
         protected override void Awake()
         {
             enemyName = "Abyss Demon";
             spriteResourcePath = "Sprites/Enemies/Abyss/abyss_final_demon";
             spriteHeight = 1.6f;
-            healthBarHeight = 3.3f;
+            // The model's own bounding box is ~1.9 units tall (vs. the old sprite's 1.6) --
+            // bumped so the health bar clears the taller model's head.
+            healthBarHeight = 3.6f;
             healthBarWidth = 2.2f;
 
             base.Awake();
@@ -48,6 +55,37 @@ namespace DungeonCrawler.Enemies
             attackDamage = 18f;
             specialTimer = specialInterval;
             addSpawnTimer = addSpawnInterval; // was defaulting to 0 -- fired an add wave on the very first Update() frame instead of waiting out the interval
+        }
+
+        // demon_imp.obj (~43k verts, modeled with per-limb part names like a rigged
+        // character -- torso/upper_arm_L/wing_membrane_L/etc.) has no armature: OBJ can't
+        // carry bones or skin weights even if the source file had them, so this imports as
+        // one static mesh with no animatable parts. SpriteAnimator (despite the name, it's
+        // pure Transform manipulation -- idle bob + a PulseAttack scale-punch, no
+        // SpriteRenderer dependency) is reused as-is for the same "something alive, not a
+        // frozen prop" read every other enemy already gets, wired into the base class's
+        // spriteAnimator field so Attack() below can still trigger the pulse.
+        //
+        // Colors come entirely from demon_imp.mtl (flat Kd values per material, no maps --
+        // matches this project's existing no-texture art direction on its own) baked in at
+        // import time. Nothing here needs to touch material color at runtime.
+        protected override void AttachVisual()
+        {
+            var model = Resources.Load<GameObject>(DemonModelResourcePath);
+            if (model == null)
+            {
+                base.AttachVisual(); // fall back to the old sprite if the model resource is missing
+                return;
+            }
+
+            var modelGO = Instantiate(model, transform);
+            modelGO.name = "DemonModel";
+            modelGO.transform.localPosition = Vector3.zero; // the mesh's own geometry already starts at floor level (min Y ~= 0)
+            modelGO.transform.localRotation = Quaternion.identity;
+
+            spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
+            spriteAnimator.bobHeight = 0.05f;
+            spriteAnimator.bobSpeed = 1.4f; // slower than a small enemy's bob -- reads as weighty rather than jittery at this scale
         }
 
         protected override void Update()
@@ -182,6 +220,7 @@ namespace DungeonCrawler.Enemies
 
             float dmg = attackDamage * mitigation;
             target.GetComponent<IHealth>()?.TakeDamage(dmg, ignoreDef: false);
+            spriteAnimator?.PulseAttack(); // this class doesn't call base.Attack(), so it has to trigger its own visual tell
 
             // HEALER CHECK: phase 2 sustained damage is tuned so a healer must be
             // actively topping the party off, not just reacting to emergencies.

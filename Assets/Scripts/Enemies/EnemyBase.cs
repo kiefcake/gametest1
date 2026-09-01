@@ -39,7 +39,10 @@ namespace DungeonCrawler.Enemies
         protected float spriteHeight = 1f;
         protected float healthBarHeight = 2f;
         protected float healthBarWidth = 1.2f;
-        private SpriteAnimator spriteAnimator;
+        // protected, not private -- AbyssFinalDemon's AttachVisual() override attaches this
+        // same generic bob/pulse animator to a non-sprite (3D mesh) visual and needs to
+        // wire it in here so Attack() (below) can still trigger PulseAttack() on it.
+        protected SpriteAnimator spriteAnimator;
 
         [Header("Separation")]
         [Tooltip("Nothing here has a Rigidbody -- movement is direct transform manipulation, so Unity's physics never pushes overlapping enemies apart on its own. This radius/strength substitute for that.")]
@@ -78,17 +81,23 @@ namespace DungeonCrawler.Enemies
                 controller = GetComponent<CharacterController>();
             }
 
-            if (!string.IsNullOrEmpty(spriteResourcePath))
-            {
-                var sprite = Resources.Load<Sprite>(spriteResourcePath);
-                if (sprite != null)
-                {
-                    var sr = SpriteVisual.Attach(transform, sprite, new Vector3(0, spriteHeight, 0), spriteScale);
-                    if (sr != null) spriteAnimator = sr.GetComponent<SpriteAnimator>();
-                }
-            }
+            AttachVisual();
 
             EnemyHealthBar.Attach(transform, health, new Vector3(0, healthBarHeight, 0), healthBarWidth);
+        }
+
+        // The billboard-sprite path every enemy uses by default. Pulled out of Awake() so a
+        // subclass with a real (if rig-less) 3D model -- see AbyssFinalDemon -- can replace
+        // it entirely instead of the sprite loading silently no-op'ing alongside an unused
+        // spriteResourcePath.
+        protected virtual void AttachVisual()
+        {
+            if (string.IsNullOrEmpty(spriteResourcePath)) return;
+            var sprite = Resources.Load<Sprite>(spriteResourcePath);
+            if (sprite == null) return;
+
+            var sr = SpriteVisual.Attach(transform, sprite, new Vector3(0, spriteHeight, 0), spriteScale);
+            if (sr != null) spriteAnimator = sr.GetComponent<SpriteAnimator>();
         }
 
         protected virtual void OnDestroy()
