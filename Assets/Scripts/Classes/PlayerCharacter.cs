@@ -66,6 +66,12 @@ namespace DungeonCrawler.Classes
                 cc.height = 2f;
                 cc.radius = 0.4f;
                 cc.center = new Vector3(0, 1f, 0);
+                // Unity's default (45) was right at the edge of what DungeonLayout's ramps
+                // actually measure out to -- a rotation bug briefly made one ramp steeper
+                // than that entirely (since fixed), but 45 leaves zero margin for any ramp
+                // to be even slightly off. Raised well clear of every ramp's real angle
+                // (~35 degrees) so a ramp is never the reason movement gets blocked.
+                cc.slopeLimit = 60f;
             }
 
             // AoE abilities use Physics.OverlapSphere, which needs a collider to detect this object.

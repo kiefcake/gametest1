@@ -28,7 +28,10 @@ namespace DungeonCrawler.World
         public float circularRoomRadius = 15f;
         public float platformHeight = 3.5f;
         public float platformHalfSize = 3f;
-        public float corridorWidth = 4f;
+        // Widened from 4 -- generous margin against anything narrowing a passage (the
+        // circular room's gap, an enemy or two standing in a doorway during a fight, any
+        // future geometry tweak) actually blocking it shut.
+        public float corridorWidth = 6f;
         public float corridorLength = 6f;
         public float wallHeight = 3f;
         public float wallThickness = 0.5f;
@@ -195,7 +198,15 @@ namespace DungeonCrawler.World
             floor.transform.localScale = new Vector3(radius * 2f, 0.05f, radius * 2f);
             SetColor(floor, floorColor);
 
-            float gapHalfAngle = Mathf.Asin(Mathf.Clamp01((corridorWidth / 2f) / radius)) * Mathf.Rad2Deg;
+            // BuildCircularWallRing only skips whole 15-degree segments (not partial ones),
+            // and each kept segment is widened 15% to avoid seams -- the widened segments
+            // immediately next to a gap encroach into it, so a gapHalfAngle just past the
+            // "pure chord" value only ever skips a single segment regardless of
+            // corridorWidth, leaving real clearance well under the intended width. The +16
+            // pushes past a full 15-degree segment spacing so the two neighboring segments
+            // get skipped too, guaranteeing a wide, unambiguous opening instead of one
+            // narrow segment's worth.
+            float gapHalfAngle = Mathf.Asin(Mathf.Clamp01((corridorWidth / 2f) / radius)) * Mathf.Rad2Deg + 16f;
             BuildCircularWallRing(center, radius, new float[] { 0f, 180f }, gapHalfAngle);
 
             if (buildCeiling)
