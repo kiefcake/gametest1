@@ -43,6 +43,10 @@ namespace DungeonCrawler.Enemies
         // same generic bob/pulse animator to a non-sprite (3D mesh) visual and needs to
         // wire it in here so Attack() (below) can still trigger PulseAttack() on it.
         protected SpriteAnimator spriteAnimator;
+        // protected -- lets a subclass whose variant isn't decided until after Awake() (see
+        // ImpDemon.isSpikedVariant) swap the sprite post-hoc instead of needing to rebuild
+        // the whole visual hierarchy.
+        protected SpriteRenderer spriteRenderer;
 
         [Header("Separation")]
         [Tooltip("Nothing here has a Rigidbody -- movement is direct transform manipulation, so Unity's physics never pushes overlapping enemies apart on its own. This radius/strength substitute for that.")]
@@ -98,6 +102,7 @@ namespace DungeonCrawler.Enemies
 
             var sr = SpriteVisual.Attach(transform, sprite, new Vector3(0, spriteHeight, 0), spriteScale);
             if (sr != null) spriteAnimator = sr.GetComponent<SpriteAnimator>();
+            spriteRenderer = sr;
         }
 
         protected virtual void OnDestroy()
