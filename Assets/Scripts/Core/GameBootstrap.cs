@@ -46,13 +46,17 @@ namespace DungeonCrawler
 
         private void Start()
         {
+            // Reset here, before the character select screen builds -- CharacterSelectUI
+            // now hosts the Hardcore toggle (see BuildUI), and BeginRun runs AFTER the
+            // player has already clicked a class card, so resetting inside BeginRun would
+            // wipe out whatever they just picked on that same screen.
+            RunModifiers.ResetAll();
             CharacterSelectUI.Show(BeginRun);
         }
 
         private void BeginRun(TestClass chosenClass)
         {
             classToTest = chosenClass;
-            RunModifiers.ResetAll(); // a fresh character select starts a fresh run -- modifiers don't carry over
             wastesCleared = frostlandsCleared = marshlandsCleared = false;
 
             var hubGO = new GameObject("Hub");
@@ -768,6 +772,7 @@ namespace DungeonCrawler
             loot.minGold = 90;
             loot.maxGold = 140;
             loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
+            h.OnDeath += PlayerProgress.MarkFrozenCryptBossDefeated;
         }
 
         private void SpawnBogLurker(Vector3 pos) => BogLurker.Spawn(pos).transform.SetParent(dungeonRoot.transform);
@@ -788,6 +793,7 @@ namespace DungeonCrawler
             loot.minGold = 90;
             loot.maxGold = 140;
             loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
+            h.OnDeath += PlayerProgress.MarkSunkenRuinsBossDefeated;
         }
 
         private void SpawnBoss(Vector3 pos)
@@ -806,6 +812,7 @@ namespace DungeonCrawler
             loot.minGold = 90;
             loot.maxGold = 140;
             loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
+            h.OnDeath += PlayerProgress.MarkAbyssBossDefeated;
         }
 
         // Guaranteed loot (no kill required) in the vault room, pulled straight from the

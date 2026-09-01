@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using DungeonCrawler.Core;
 
 namespace DungeonCrawler.UI
 {
@@ -10,6 +11,11 @@ namespace DungeonCrawler.UI
     // only spawns the run once a card is clicked.
     public class CharacterSelectUI : MonoBehaviour
     {
+        private Image hardcoreButtonImage;
+        private Text hardcoreButtonText;
+        private static readonly Color HardcoreOffColor = new Color(0.3f, 0.3f, 0.34f);
+        private static readonly Color HardcoreOnColor = new Color(0.65f, 0.2f, 0.2f);
+
         private struct ClassOption
         {
             public GameBootstrap.TestClass testClass;
@@ -90,6 +96,57 @@ namespace DungeonCrawler.UI
                     onSelected?.Invoke(opt.testClass);
                 });
             }
+
+            BuildHardcoreToggle(canvasGO.transform, font);
+        }
+
+        // Relocated here from the old DungeonSelectUI (removed -- this was its only
+        // remaining live feature once the open world replaced its dungeon-portal role).
+        // Only shown once PlayerProgress.HardcoreUnlocked -- earned by beating all three
+        // dungeon bosses at least once, not available from the start.
+        private void BuildHardcoreToggle(Transform canvasParent, Font font)
+        {
+            if (!PlayerProgress.HardcoreUnlocked) return;
+
+            var go = new GameObject("HardcoreToggle", typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(canvasParent, false);
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0f);
+            rect.anchorMax = new Vector2(0.5f, 0f);
+            rect.pivot = new Vector2(0.5f, 0f);
+            rect.anchoredPosition = new Vector2(0, 40);
+            rect.sizeDelta = new Vector2(320, 48);
+            hardcoreButtonImage = go.GetComponent<Image>();
+
+            var textGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
+            textGO.transform.SetParent(go.transform, false);
+            var textRect = textGO.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            hardcoreButtonText = textGO.GetComponent<Text>();
+            hardcoreButtonText.font = font;
+            hardcoreButtonText.fontSize = 18;
+            hardcoreButtonText.fontStyle = FontStyle.Bold;
+            hardcoreButtonText.alignment = TextAnchor.MiddleCenter;
+            hardcoreButtonText.color = Color.white;
+
+            go.GetComponent<Button>().onClick.AddListener(ToggleHardcore);
+            RefreshHardcoreToggle();
+        }
+
+        private void ToggleHardcore()
+        {
+            RunModifiers.DoubleDamageTaken = !RunModifiers.DoubleDamageTaken;
+            RefreshHardcoreToggle();
+        }
+
+        private void RefreshHardcoreToggle()
+        {
+            bool on = RunModifiers.DoubleDamageTaken;
+            hardcoreButtonText.text = on ? "Hardcore: ON (2x dmg taken)" : "Hardcore: OFF";
+            hardcoreButtonImage.color = on ? HardcoreOnColor : HardcoreOffColor;
         }
 
         private RectTransform MakeAnchoredRect(Transform parent, Vector2 anchor, Vector2 anchoredPos, Vector2 sizeDelta)
