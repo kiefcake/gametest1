@@ -565,10 +565,26 @@ namespace DungeonCrawler.World
             if (buildTorches) BuildTorch(gapOuter + new Vector3(-1.2f, 1.1f, 0));
         }
 
-        // Oriented via FromToRotation rather than hand-derived Euler angles -- the ramp's
-        // local +X axis is rotated to point from bottomPos to topPos, so the box's ends
-        // land exactly on those two world positions regardless of which quadrant the drop
-        // is in, with no sign-of-angle guesswork.
+        // Oriented via LookRotation(dir, world-up) rather than hand-derived Euler angles or
+        // FromToRotation -- local Z tracks the slope direction (bottomPos to topPos) and
+        // local X (width) is cross(up, forward), which is always horizontal, so the box
+        // pitches to match the slope but never rolls, regardless of which horizontal axis
+        // the ramp runs along.
+        //
+        // This used to be Quaternion.FromToRotation(Vector3.right, dir.normalized) with
+        // local X as the length axis. FromToRotation picks the single minimal rotation
+        // from local +X onto dir -- fine when dir's horizontal component lies along world
+        // X, but for a ramp that rises while running along world Z instead (the platform
+        // ramp below climbs in Y over a horizontal run entirely along Z), that minimal
+        // rotation wasn't pure pitch: it also rolled the box, tilting its width axis out
+        // of level. The roll compounded with the pitch and steepened the walkable
+        // surface's real slope well past the rise/run angle -- confirmed ~47.8 degrees of
+        // actual surface tilt for that ramp versus the ~35 degrees its rise
+        // (platformHeight=3.5) over run (5) implies, which clears CharacterController's
+        // default 45-degree slopeLimit and made the "ramp" functionally an unclimbable
+        // wall (the exact "invisible barrier" shape the room already had a decor-pillar
+        // version of). LookRotation can't roll, so this can't recur regardless of which
+        // horizontal axis a future ramp runs along.
         private void BuildRamp(Vector3 topPos, Vector3 bottomPos, float width, float thickness = 0.4f)
         {
             Vector3 dir = topPos - bottomPos;
@@ -579,8 +595,11 @@ namespace DungeonCrawler.World
             ramp.name = "Ramp";
             ramp.transform.SetParent(transform);
             ramp.transform.position = (topPos + bottomPos) / 2f;
-            ramp.transform.rotation = Quaternion.FromToRotation(Vector3.right, dir.normalized);
-            ramp.transform.localScale = new Vector3(length, thickness, width);
+            ramp.transform.rotation = Quaternion.LookRotation(dir.normalized, Vector3.up);
+            // Axis roles follow the rotation above: local Z is the length axis and local X
+            // the width axis (the old FromToRotation version had local X as length, local
+            // Z as width).
+            ramp.transform.localScale = new Vector3(width, thickness, length);
             SetColor(ramp, wallColor);
         }
 
