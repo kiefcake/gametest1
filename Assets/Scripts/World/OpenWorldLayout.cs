@@ -43,6 +43,10 @@ namespace DungeonCrawler.World
         private const float WallHeight = 4f;
         private const float WallThickness = 1f;
 
+        // Shared by both BuildWall's main cube and AddWallTrim's bands so they derive from
+        // one base color, same as DungeonLayout's wallColor field.
+        private static readonly Color WallColor = new Color(0.2f, 0.2f, 0.2f);
+
         // Relative to each zone's own center -- kept away from the camp region (z offset
         // +18 from center, guards radiating a further ~8) so a hazard patch never overlaps
         // the camp itself.
@@ -99,7 +103,11 @@ namespace DungeonCrawler.World
             BuildGroundPlane(zoneCenter, groundColor);
 
             foreach (var offset in HazardOffsets)
-                BuildHazardPatch(zoneCenter + offset, hazard);
+            {
+                Vector3 hazardPos = zoneCenter + offset;
+                BuildHazardPatch(hazardPos, hazard);
+                BuildHazardProps(hazardPos, hazard);
+            }
 
             Vector3 campCenter = zoneCenter + new Vector3(0, 0, 18f);
             BuildCamp(campCenter);
@@ -237,6 +245,89 @@ namespace DungeonCrawler.World
             }
         }
 
+        // Small biome-flavored clutter beside each hazard patch, same "3-6 scattered
+        // decorative primitives" technique DungeonLayout's BuildBonePile/BuildIceSpikes/
+        // BuildReedCluster already use. Offset clears the pool's own radius (3.5) so the
+        // cluster sits beside the glow rather than on top of it.
+        private void BuildHazardProps(Vector3 hazardPos, HazardKind kind)
+        {
+            Vector3 clusterPos = hazardPos + new Vector3(4.5f, 0, 2f);
+            switch (kind)
+            {
+                case HazardKind.Ice:
+                    BuildIceShardCluster(clusterPos);
+                    break;
+                case HazardKind.Bog:
+                    BuildReedCluster(clusterPos);
+                    break;
+                default:
+                    BuildScorchedRockCluster(clusterPos);
+                    break;
+            }
+        }
+
+        // Lava's clutter -- charred rock chunks scattered near the pool, crude irregular
+        // cubes rather than DungeonLayout's bone pile (this is an open-world burn scar, not
+        // a crypt).
+        private void BuildScorchedRockCluster(Vector3 pos)
+        {
+            var rockColor = new Color(0.13f, 0.11f, 0.1f);
+            int count = Random.Range(3, 6);
+            for (int i = 0; i < count; i++)
+            {
+                var rock = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                rock.name = "ScorchedRock";
+                var col = rock.GetComponent<Collider>();
+                if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
+                rock.transform.SetParent(transform);
+                Vector3 offset = new Vector3(Random.Range(-0.6f, 0.6f), 0.1f, Random.Range(-0.6f, 0.6f));
+                rock.transform.position = pos + offset;
+                rock.transform.rotation = Quaternion.Euler(Random.Range(-20f, 20f), Random.Range(0f, 360f), Random.Range(-20f, 20f));
+                rock.transform.localScale = new Vector3(Random.Range(0.25f, 0.45f), Random.Range(0.2f, 0.35f), Random.Range(0.25f, 0.45f));
+                SetColor(rock, rockColor);
+            }
+        }
+
+        // Frostlands' clutter -- same jagged ice-shard cluster as DungeonLayout.BuildIceSpikes.
+        private void BuildIceShardCluster(Vector3 pos)
+        {
+            var iceColor = new Color(0.78f, 0.92f, 1f);
+            int count = Random.Range(3, 6);
+            for (int i = 0; i < count; i++)
+            {
+                var spike = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                spike.name = "IceShard";
+                var col = spike.GetComponent<Collider>();
+                if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
+                spike.transform.SetParent(transform);
+                Vector3 offset = new Vector3(Random.Range(-0.5f, 0.5f), 0.1f, Random.Range(-0.5f, 0.5f));
+                spike.transform.position = pos + offset;
+                spike.transform.rotation = Quaternion.Euler(Random.Range(-8f, 8f), Random.Range(0f, 360f), Random.Range(-8f, 8f));
+                spike.transform.localScale = new Vector3(0.1f, Random.Range(0.4f, 0.7f), 0.1f);
+                SetColor(spike, iceColor);
+            }
+        }
+
+        // Marshlands' clutter -- same tall reed/rush cluster as DungeonLayout.BuildReedCluster.
+        private void BuildReedCluster(Vector3 pos)
+        {
+            var reedColor = new Color(0.3f, 0.42f, 0.24f);
+            int count = Random.Range(3, 6);
+            for (int i = 0; i < count; i++)
+            {
+                var reed = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                reed.name = "Reed";
+                var col = reed.GetComponent<Collider>();
+                if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
+                reed.transform.SetParent(transform);
+                Vector3 offset = new Vector3(Random.Range(-0.5f, 0.5f), 0.1f, Random.Range(-0.5f, 0.5f));
+                reed.transform.position = pos + offset;
+                reed.transform.rotation = Quaternion.Euler(Random.Range(-6f, 6f), Random.Range(0f, 360f), Random.Range(-6f, 6f));
+                reed.transform.localScale = new Vector3(0.07f, Random.Range(0.5f, 0.85f), 0.07f);
+                SetColor(reed, reedColor);
+            }
+        }
+
         // A cleared dirt patch with a couple of lean-to tents, a campfire, and a crate or
         // two -- reads as a bandit camp using only primitives, matching the level of visual
         // complexity DungeonLayout.BuildTorch/BuildPillar already use for placeholder decor.
@@ -259,6 +350,39 @@ namespace DungeonCrawler.World
 
             BuildCrate(center + new Vector3(4f, 0, 1.5f));
             BuildCrate(center + new Vector3(-4f, 0, 2.5f));
+
+            BuildCampPerimeter(center);
+        }
+
+        // A rough palisade ring -- decorative only (colliders destroyed) so it never blocks
+        // the miniboss fight or a guard spawn. Ring radius (10.5) is picked to sit clear of
+        // GuardOffsets' outermost point (~9.2 from center) with margin to spare.
+        private void BuildCampPerimeter(Vector3 center)
+        {
+            const int stakeCount = 6;
+            const float ringRadius = 10.5f;
+            for (int i = 0; i < stakeCount; i++)
+            {
+                float angle = i * (360f / stakeCount) + Random.Range(-10f, 10f);
+                Vector3 dir = Quaternion.Euler(0, angle, 0) * Vector3.forward;
+                BuildStake(center + dir * ringRadius, angle);
+            }
+        }
+
+        // A thin cylinder tilted outward like a hastily driven stake -- same crude-lean
+        // technique BuildTent already uses, just standing rather than lying over.
+        private void BuildStake(Vector3 basePos, float outwardAngle)
+        {
+            var stake = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            stake.name = "CampStake";
+            var col = stake.GetComponent<Collider>();
+            if (col != null) Destroy(col); // decorative -- must not block guard spawns or the miniboss fight
+            stake.transform.SetParent(transform);
+            float height = Random.Range(1f, 1.5f);
+            stake.transform.position = basePos + new Vector3(0, height / 2f, 0);
+            stake.transform.rotation = Quaternion.Euler(Random.Range(10f, 18f), outwardAngle, 0f);
+            stake.transform.localScale = new Vector3(0.1f, height / 2f, 0.1f);
+            SetColor(stake, new Color(0.24f, 0.16f, 0.07f)); // raw split wood, darker/rougher than tents or crates
         }
 
         // A single cube scaled thin and tall, then tilted forward like a leaning tent
@@ -333,7 +457,36 @@ namespace DungeonCrawler.World
             wall.transform.SetParent(transform);
             wall.transform.position = worldCenter;
             wall.transform.localScale = scale;
-            SetColor(wall, new Color(0.2f, 0.2f, 0.2f));
+            SetColor(wall, WallColor);
+
+            AddWallTrim(worldCenter, scale);
+        }
+
+        // Same two-tone baseboard/cap treatment as DungeonLayout.AddWallTrim -- both bands
+        // are decorative-only (no collider) so the boundary's collision footprint never
+        // changes.
+        private void AddWallTrim(Vector3 worldCenter, Vector3 scale)
+        {
+            float bandHeight = Mathf.Min(0.3f, scale.y * 0.15f);
+            Color baseboard = WallColor * 0.55f; baseboard.a = 1f;
+            Color cap = Color.Lerp(WallColor, Color.white, 0.25f);
+            Vector3 bandScale = new Vector3(scale.x + 0.04f, bandHeight, scale.z + 0.04f);
+
+            BuildTrimBand(worldCenter + new Vector3(0, -scale.y / 2f + bandHeight / 2f, 0), bandScale, baseboard);
+            BuildTrimBand(worldCenter + new Vector3(0, scale.y / 2f - bandHeight / 2f, 0), bandScale, cap);
+        }
+
+        private GameObject BuildTrimBand(Vector3 pos, Vector3 scale, Color color)
+        {
+            var band = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            band.name = "WallTrim";
+            var col = band.GetComponent<Collider>();
+            if (col != null) Destroy(col);
+            band.transform.SetParent(transform);
+            band.transform.position = pos;
+            band.transform.localScale = scale;
+            SetColor(band, color);
+            return band;
         }
 
         private void SetColor(GameObject go, Color c)

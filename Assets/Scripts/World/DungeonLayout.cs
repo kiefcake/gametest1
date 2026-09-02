@@ -387,6 +387,11 @@ namespace DungeonCrawler.World
             // angle into the gap on either side.
             float segmentWidth = 2f * radius * Mathf.Sin(segmentAngle * Mathf.Deg2Rad / 2f) * 1.01f;
 
+            float bandHeight = Mathf.Min(0.3f, wallHeight * 0.15f);
+            Color baseboard = wallColor * 0.55f; baseboard.a = 1f;
+            Color cap = Color.Lerp(wallColor, Color.white, 0.25f);
+            float bandFrac = bandHeight / wallHeight; // fraction of wallHeight, since bands are built as scaled children of each unit-cube wall segment
+
             for (int i = 0; i < segmentCount; i++)
             {
                 float angle = startAngle + (i + 0.5f) * segmentAngle; // this segment's own center angle
@@ -400,6 +405,19 @@ namespace DungeonCrawler.World
                 wall.transform.rotation = Quaternion.Euler(0, angle, 0);
                 wall.transform.localScale = new Vector3(segmentWidth, wallHeight, wallThickness);
                 SetColor(wall, wallColor);
+
+                // Trim bands as scaled children of the segment cube, not AddWallTrim's own
+                // world-space padding -- a curved wall's segments are each individually
+                // rotated, so parenting is what makes the bands rotate along with them.
+                // Local scale here is a fraction of the PARENT's unit-cube size (1,1,1
+                // before wall's own localScale is applied), not world units.
+                var baseband = BuildTrimBand(Vector3.zero, new Vector3(1.02f, bandFrac, 1.15f), baseboard);
+                baseband.transform.SetParent(wall.transform, false);
+                baseband.transform.localPosition = new Vector3(0, -0.5f + bandFrac / 2f, 0);
+
+                var capband = BuildTrimBand(Vector3.zero, new Vector3(1.02f, bandFrac, 1.15f), cap);
+                capband.transform.SetParent(wall.transform, false);
+                capband.transform.localPosition = new Vector3(0, 0.5f - bandFrac / 2f, 0);
             }
         }
 
@@ -846,6 +864,43 @@ namespace DungeonCrawler.World
             wall.transform.position = worldCenter;
             wall.transform.localScale = scale;
             SetColor(wall, wallColor);
+
+            AddWallTrim(worldCenter, scale);
+        }
+
+        // A darker baseboard and a lighter cap band, flush against the wall's own footprint
+        // -- breaks up what used to be one flat-colored box into a body+accent read, the
+        // same body/accent-color language the enemies now use (see ProceduralMonster).
+        // Both bands are decorative only (colliders destroyed) so they never change a
+        // wall's actual collision footprint or any corridor-width math elsewhere.
+        private void AddWallTrim(Vector3 worldCenter, Vector3 scale)
+        {
+            float bandHeight = Mathf.Min(0.3f, scale.y * 0.15f);
+            Color baseboard = wallColor * 0.55f; baseboard.a = 1f;
+            Color cap = Color.Lerp(wallColor, Color.white, 0.25f);
+            // Padded a hair past the wall's own width/depth on both plan-view axes so the
+            // band never z-fights with the wall body, regardless of which axis is this
+            // particular wall's "length" vs. "thickness."
+            Vector3 bandScale = new Vector3(scale.x + 0.04f, bandHeight, scale.z + 0.04f);
+
+            BuildTrimBand(worldCenter + new Vector3(0, -scale.y / 2f + bandHeight / 2f, 0), bandScale, baseboard);
+            BuildTrimBand(worldCenter + new Vector3(0, scale.y / 2f - bandHeight / 2f, 0), bandScale, cap);
+        }
+
+        // Returns the created GameObject (rather than void) so BuildCircularWallArc can
+        // reparent it onto a rotated wall segment afterward -- AddWallTrim's straight-wall
+        // callers just discard the return value.
+        private GameObject BuildTrimBand(Vector3 pos, Vector3 scale, Color color)
+        {
+            var band = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            band.name = "WallTrim";
+            var col = band.GetComponent<Collider>();
+            if (col != null) Destroy(col);
+            band.transform.SetParent(transform);
+            band.transform.position = pos;
+            band.transform.localScale = scale;
+            SetColor(band, color);
+            return band;
         }
 
         private void SetColor(GameObject go, Color c)

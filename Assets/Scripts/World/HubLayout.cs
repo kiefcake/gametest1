@@ -44,7 +44,7 @@ namespace DungeonCrawler.World
 
             BuildSquareFloor();
             BuildCastleWalls();
-            BuildFountain(Center);
+            BuildWell(Center);
             BuildVendorStall(Center + new Vector3(-11f, 0, 9f), "Alchemist",
                 "Potions for every stat -- a small boost per bottle, five to a cap.", new Color(0.4f, 0.7f, 0.5f));
             BuildVendorStall(Center + new Vector3(11f, 0, 9f), "Blacksmith",
@@ -126,6 +126,32 @@ namespace DungeonCrawler.World
             wall.transform.position = worldCenter;
             wall.transform.localScale = scale;
             SetColor(wall, WallStoneColor);
+
+            AddWallTrim(worldCenter, scale);
+        }
+
+        private void AddWallTrim(Vector3 worldCenter, Vector3 scale)
+        {
+            float bandHeight = Mathf.Min(0.3f, scale.y * 0.15f);
+            Color baseboard = WallStoneColor * 0.55f; baseboard.a = 1f;
+            Color cap = Color.Lerp(WallStoneColor, Color.white, 0.25f);
+            Vector3 bandScale = new Vector3(scale.x + 0.04f, bandHeight, scale.z + 0.04f);
+
+            BuildTrimBand(worldCenter + new Vector3(0, -scale.y / 2f + bandHeight / 2f, 0), bandScale, baseboard);
+            BuildTrimBand(worldCenter + new Vector3(0, scale.y / 2f - bandHeight / 2f, 0), bandScale, cap);
+        }
+
+        private GameObject BuildTrimBand(Vector3 pos, Vector3 scale, Color color)
+        {
+            var band = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            band.name = "WallTrim";
+            var col = band.GetComponent<Collider>();
+            if (col != null) Destroy(col);
+            band.transform.SetParent(transform);
+            band.transform.position = pos;
+            band.transform.localScale = scale;
+            SetColor(band, color);
+            return band;
         }
 
         // Merlons narrower than their spacing slot -- the gaps between them fall out
@@ -214,17 +240,17 @@ namespace DungeonCrawler.World
             holder.AddComponent<TorchFlicker>().flickerAmount = 0.2f; // gentler than dungeon torches -- hub should read as calm
         }
 
-        private void BuildFountain(Vector3 center)
+        private void BuildWell(Vector3 center)
         {
             var basin = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            basin.name = "FountainBasin";
+            basin.name = "WellBasin";
             basin.transform.SetParent(transform);
             basin.transform.position = center + new Vector3(0, 0.35f, 0);
             basin.transform.localScale = new Vector3(3.2f, 0.35f, 3.2f);
             SetColor(basin, new Color(0.4f, 0.4f, 0.42f));
 
             var water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            water.name = "FountainWater";
+            water.name = "WellWater";
             var waterCol = water.GetComponent<Collider>();
             if (waterCol != null) Destroy(waterCol);
             water.transform.SetParent(transform);
@@ -232,12 +258,69 @@ namespace DungeonCrawler.World
             water.transform.localScale = new Vector3(2.8f, 0.05f, 2.8f);
             SetColor(water, new Color(0.25f, 0.55f, 0.75f));
 
-            var spout = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            spout.name = "FountainSpout";
-            spout.transform.SetParent(transform);
-            spout.transform.position = center + new Vector3(0, 1.1f, 0);
-            spout.transform.localScale = new Vector3(0.4f, 0.75f, 0.4f);
-            SetColor(spout, new Color(0.45f, 0.45f, 0.48f));
+            // A solid short cylinder standing on the basin's edge -- reads as a knee-high
+            // stone rim without needing an actual hollow-ring mesh. Kept low (top just
+            // above the water's own surface at y=0.6) rather than the taller block a
+            // "rim" first suggests: since a Cylinder primitive has a solid top cap, not an
+            // open ring, anything taller here would sit as an opaque lid directly over the
+            // water and hide it completely from a standing player's eye height, defeating
+            // the still-water read this well is built around. Keeps its collider (the
+            // basin/water below don't have one) so the player can bump against the well
+            // itself, same as BuildCornerTower's body vs. its collider-less roof.
+            var rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            rim.name = "WellRim";
+            rim.transform.SetParent(transform);
+            rim.transform.position = center + new Vector3(0, 0.75f, 0);
+            rim.transform.localScale = new Vector3(3.4f, 0.25f, 3.4f);
+            SetColor(rim, WallStoneColor);
+
+            // Two posts angled inward at the top (same paired-tilt trick BuildCanopy uses
+            // for its peaked awning) so the beam they carry reads as resting on an A-frame
+            // rather than floating between two straight sticks.
+            BuildWellPost(center + new Vector3(-1.6f, 0, 0), 10f);
+            BuildWellPost(center + new Vector3(1.6f, 0, 0), -10f);
+
+            var beam = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            beam.name = "WellBeam";
+            var beamCol = beam.GetComponent<Collider>();
+            if (beamCol != null) Destroy(beamCol);
+            beam.transform.SetParent(transform);
+            beam.transform.position = center + new Vector3(0, 2.5f, 0);
+            beam.transform.localScale = new Vector3(3.4f, 0.2f, 0.2f);
+            SetColor(beam, new Color(0.25f, 0.18f, 0.1f));
+
+            // Rope + bucket hanging toward the water -- the one detail that makes this
+            // unmistakably a well rather than a fountain.
+            var rope = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            rope.name = "WellRope";
+            var ropeCol = rope.GetComponent<Collider>();
+            if (ropeCol != null) Destroy(ropeCol);
+            rope.transform.SetParent(transform);
+            rope.transform.position = center + new Vector3(0, 1.6f, 0);
+            rope.transform.localScale = new Vector3(0.06f, 1.8f, 0.06f);
+            SetColor(rope, new Color(0.5f, 0.4f, 0.25f));
+
+            var bucket = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            bucket.name = "WellBucket";
+            var bucketCol = bucket.GetComponent<Collider>();
+            if (bucketCol != null) Destroy(bucketCol);
+            bucket.transform.SetParent(transform);
+            bucket.transform.position = center + new Vector3(0, 0.75f, 0);
+            bucket.transform.localScale = new Vector3(0.4f, 0.25f, 0.4f);
+            SetColor(bucket, new Color(0.3f, 0.24f, 0.16f));
+        }
+
+        private void BuildWellPost(Vector3 basePos, float tiltDegrees)
+        {
+            var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            post.name = "WellPost";
+            var col = post.GetComponent<Collider>();
+            if (col != null) Destroy(col);
+            post.transform.SetParent(transform);
+            post.transform.position = basePos + new Vector3(0, 1.8f, 0);
+            post.transform.localRotation = Quaternion.Euler(0, 0, tiltDegrees);
+            post.transform.localScale = new Vector3(0.15f, 1.3f, 0.15f);
+            SetColor(post, new Color(0.25f, 0.18f, 0.1f));
         }
 
         // Builds the stall's geometry and an empty-stock VendorNPC + Interactable.
