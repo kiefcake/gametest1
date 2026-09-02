@@ -356,15 +356,20 @@ namespace DungeonCrawler.World
             const int segments = 24;
             float segmentAngle = 360f / segments;
             float chordLength = 2f * radius * Mathf.Sin(segmentAngle * Mathf.Deg2Rad / 2f);
-            float segmentWidth = chordLength * 1.15f; // slight overlap so segments don't leave visible seams
+            float paddedWidth = chordLength * 1.15f; // slight overlap so interior segments don't leave visible seams
 
             for (int i = 0; i < segments; i++)
             {
                 float angle = i * segmentAngle;
                 bool inGap = false;
+                bool bordersGap = false;
                 foreach (var gapAngle in gapAnglesDeg)
                 {
-                    if (Mathf.Abs(Mathf.DeltaAngle(angle, gapAngle)) <= gapHalfAngle) { inGap = true; break; }
+                    float dist = Mathf.Abs(Mathf.DeltaAngle(angle, gapAngle));
+                    if (dist <= gapHalfAngle) { inGap = true; break; }
+                    // Within one segment-step of the gap boundary -- this segment's own
+                    // slice is adjacent to the opening.
+                    if (dist <= gapHalfAngle + segmentAngle) bordersGap = true;
                 }
                 if (inGap) continue;
 
@@ -376,7 +381,14 @@ namespace DungeonCrawler.World
                 wall.transform.SetParent(transform);
                 wall.transform.position = pos;
                 wall.transform.rotation = Quaternion.Euler(0, angle, 0);
-                wall.transform.localScale = new Vector3(segmentWidth, wallHeight, wallThickness);
+                // A segment bordering a gap uses its exact, unpadded chord width -- the
+                // 1.15x overlap that hides seams between INTERIOR segments was, on a
+                // gap-adjacent segment, eating into the gap opening itself from both sides
+                // (the widened neighbor closest to the gap on each edge), narrowing the real
+                // clear passage well below what corridorWidth/gapHalfAngle intended. This is
+                // the actual "can't walk through, wall reads as open" bug: the gap looked
+                // wide enough but a widened wall corner was still sitting inside it.
+                wall.transform.localScale = new Vector3(bordersGap ? chordLength : paddedWidth, wallHeight, wallThickness);
                 SetColor(wall, wallColor);
             }
         }
