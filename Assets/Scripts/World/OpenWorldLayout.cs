@@ -1,4 +1,5 @@
 using UnityEngine;
+using DungeonCrawler.Core;
 
 namespace DungeonCrawler.World
 {
@@ -182,17 +183,26 @@ namespace DungeonCrawler.World
         {
             const float radius = 3.5f;
             Color flat, glowA, glowB;
+            StatusEffectType effect = StatusEffectType.None;
+            float effectMag = 0f;
+            float effectDur = 0f;
             switch (kind)
             {
                 case HazardKind.Ice:
                     flat = new Color(0.55f, 0.85f, 1f);
                     glowA = new Color(0.35f, 0.65f, 0.9f);
                     glowB = new Color(0.75f, 0.95f, 1f);
+                    effect = StatusEffectType.Slow;
+                    effectMag = 0.4f;
+                    effectDur = 1.5f;
                     break;
                 case HazardKind.Bog:
                     flat = new Color(0.35f, 0.42f, 0.12f);
                     glowA = new Color(0.25f, 0.32f, 0.08f);
                     glowB = new Color(0.55f, 0.58f, 0.2f);
+                    effect = StatusEffectType.Blind;
+                    effectMag = 1f;
+                    effectDur = 1.5f;
                     break;
                 default:
                     flat = new Color(0.9f, 0.35f, 0.05f);
@@ -218,7 +228,13 @@ namespace DungeonCrawler.World
             var col = pool.GetComponent<Collider>();
             if (col != null) col.isTrigger = true;
 
-            pool.AddComponent<LavaHazard>();
+            var hazard = pool.AddComponent<LavaHazard>();
+            if (effect != StatusEffectType.None)
+            {
+                hazard.appliedEffect = effect;
+                hazard.effectMagnitude = effectMag;
+                hazard.effectDuration = effectDur;
+            }
         }
 
         // A cleared dirt patch with a couple of lean-to tents, a campfire, and a crate or

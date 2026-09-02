@@ -41,7 +41,7 @@ namespace DungeonCrawler.Classes
             c.weaponSprite = Resources.Load<Sprite>("Sprites/Equipment/sword_knight"); // Sword & Shield per locked design -- sword icon stands in for the set
             c.baseHP = 250; c.baseDEF = 15; c.baseATT = 12; c.baseSPD = 5; c.baseDEX = 5; c.baseVIT = 8; c.baseWIS = 3; c.baseMP = 40;
             c.abilities.Add(MakeAbility("Shield Slam", AbilitySlot.Basic1, 2.5f, 8, damage: 15,
-                status: StatusEffectType.ArmorBreak, statusDur: 4f, statusMag: 0.25f));
+                status: StatusEffectType.ArmorBreak, statusDur: 4f, statusMag: 0.5f));
             c.abilities.Add(MakeAbility("Bulwark Stance", AbilitySlot.Basic2, 6f, 15,
                 status: StatusEffectType.Fortified, statusDur: 4f, statusMag: 0.5f, selfTargeted: true));
             c.abilities.Add(MakeAbility("Unbreakable", AbilitySlot.Ultimate, 45f, 40,

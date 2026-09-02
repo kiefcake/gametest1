@@ -154,6 +154,8 @@ namespace DungeonCrawler.Enemies
         protected virtual void MoveTowardTarget()
         {
             float speedMod = statusController.HasEffect(StatusEffectType.Weaken) ? 0.6f : 1f;
+            if (statusController.HasEffect(StatusEffectType.Slow))
+                speedMod *= 1f - statusController.GetMagnitude(StatusEffectType.Slow);
             Vector3 toTarget = target.position - transform.position;
             float dist = toTarget.magnitude;
             Vector3 dirToTarget = dist > 0.001f ? toTarget / dist : transform.forward;

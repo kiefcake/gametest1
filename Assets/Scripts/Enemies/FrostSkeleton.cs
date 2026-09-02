@@ -11,7 +11,7 @@ namespace DungeonCrawler.Enemies
     {
         public float armorBreakChance = 0.35f;
         public float armorBreakDuration = 5f;
-        public float armorBreakMagnitude = 0.25f; // +25% damage taken, matching Knight's Shield Slam's own value
+        public float armorBreakMagnitude = 0.5f; // +50% damage taken, matching Knight's Shield Slam's own value
 
         protected override void Awake()
         {

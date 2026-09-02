@@ -21,7 +21,9 @@ namespace DungeonCrawler.Core
         Sick,       // reduced healing received
         Paralyze,   // cannot act
         Fortified,  // reduced damage taken (self-buff -- e.g. Knight's Bulwark Stance/Unbreakable)
-        Empowered   // increased outgoing damage (self-buff -- e.g. Paladin's Empower)
+        Empowered,  // increased outgoing damage (self-buff -- e.g. Paladin's Empower)
+        Blind, // weakens ranged targeting -- no precise crosshair lock, shrunk fallback range
+        Slow,  // reduced movement speed
     }
 
     [System.Serializable]
@@ -84,7 +86,7 @@ namespace DungeonCrawler.Core
             StatusEffectType[] priority = {
                 StatusEffectType.Poison, StatusEffectType.Bleed, StatusEffectType.Curse,
                 StatusEffectType.Weaken, StatusEffectType.ArmorBreak, StatusEffectType.Sick,
-                StatusEffectType.Paralyze
+                StatusEffectType.Paralyze, StatusEffectType.Blind, StatusEffectType.Slow
             };
             foreach (var t in priority)
             {

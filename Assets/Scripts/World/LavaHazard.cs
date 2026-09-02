@@ -12,6 +12,9 @@ namespace DungeonCrawler.World
     {
         public float damagePerTick = 4f;
         public float tickInterval = 0.5f;
+        public StatusEffectType appliedEffect = StatusEffectType.None;
+        public float effectDuration = 2f;
+        public float effectMagnitude = 0.4f;
         private readonly Dictionary<GameObject, float> nextTickAt = new Dictionary<GameObject, float>();
 
         private void OnTriggerStay(Collider other)
@@ -21,6 +24,11 @@ namespace DungeonCrawler.World
             nextTickAt[root] = Time.time + tickInterval;
 
             other.GetComponentInParent<IHealth>()?.TakeDamage(damagePerTick, ignoreDef: true);
+
+            if (appliedEffect != StatusEffectType.None)
+            {
+                other.GetComponentInParent<StatusEffectController>()?.ApplyEffect(appliedEffect, effectDuration, effectMagnitude);
+            }
         }
     }
 }

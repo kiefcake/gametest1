@@ -174,6 +174,8 @@ namespace DungeonCrawler.UI
             StatusEffectType.Paralyze => new Color(0.5f, 0.8f, 1f),
             StatusEffectType.Fortified => new Color(0.3f, 0.7f, 0.9f),
             StatusEffectType.Empowered => new Color(0.95f, 0.85f, 0.3f),
+            StatusEffectType.Slow => new Color(0.65f, 0.85f, 1f), // icy pale blue, matches its ice-hazard source
+            StatusEffectType.Blind => new Color(0.15f, 0.15f, 0.18f), // near-black
             _ => new Color(0.6f, 0.3f, 0.75f),
         };
 

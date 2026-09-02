@@ -12,7 +12,9 @@ namespace DungeonCrawler.Classes
     {
         public static GameObject FindTarget(Transform origin, float range)
         {
-            if (Camera.main != null &&
+            bool blinded = origin.GetComponent<StatusEffectController>()?.HasEffect(StatusEffectType.Blind) ?? false;
+
+            if (!blinded && Camera.main != null &&
                 Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out RaycastHit hit, range))
             {
                 var enemy = hit.collider.GetComponentInParent<EnemyBase>();
@@ -22,7 +24,9 @@ namespace DungeonCrawler.Classes
                     if (eh == null || !eh.IsDowned) return enemy.gameObject;
                 }
             }
-            return FindNearestEnemy(origin, range);
+
+            float effectiveRange = blinded ? range * 0.35f : range;
+            return FindNearestEnemy(origin, effectiveRange);
         }
 
         public static GameObject FindNearestEnemy(Transform origin, float range)

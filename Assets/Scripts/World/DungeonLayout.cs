@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using DungeonCrawler.Classes;
+using DungeonCrawler.Core;
 using DungeonCrawler.UI;
 
 namespace DungeonCrawler.World
@@ -468,7 +469,10 @@ namespace DungeonCrawler.World
             var col = pool.GetComponent<Collider>();
             if (col != null) col.isTrigger = true;
 
-            pool.AddComponent<LavaHazard>();
+            var hazard = pool.AddComponent<LavaHazard>();
+            hazard.appliedEffect = StatusEffectType.Slow;
+            hazard.effectMagnitude = 0.4f;
+            hazard.effectDuration = 1.5f;
         }
 
         // BuildBonePile's icy counterpart -- jagged ice-spike clusters instead of scattered
@@ -516,7 +520,10 @@ namespace DungeonCrawler.World
             var col = pool.GetComponent<Collider>();
             if (col != null) col.isTrigger = true;
 
-            pool.AddComponent<LavaHazard>();
+            var hazard = pool.AddComponent<LavaHazard>();
+            hazard.appliedEffect = StatusEffectType.Blind;
+            hazard.effectMagnitude = 1f;
+            hazard.effectDuration = 1.5f;
         }
 
         // BuildBonePile/BuildIceSpikes' swamp counterpart -- tall reed/rush clusters
