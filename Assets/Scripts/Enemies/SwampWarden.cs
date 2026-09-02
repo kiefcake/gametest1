@@ -47,10 +47,8 @@ namespace DungeonCrawler.Enemies
         protected override void Awake()
         {
             enemyName = "Swamp Warden";
-            spriteResourcePath = "Sprites/Enemies/Abyss/abyss_final_demon"; // no dedicated sprite yet -- green tint below carries the theme
-            spriteHeight = 1.6f;
-            healthBarHeight = 3.3f;
-            healthBarWidth = 2.2f;
+            healthBarHeight = 4.4f;
+            healthBarWidth = 2.6f;
 
             base.Awake();
 
@@ -58,9 +56,23 @@ namespace DungeonCrawler.Enemies
             attackDamage = 18f;
             specialTimer = specialInterval;
             addSpawnTimer = addSpawnInterval; // was defaulting to 0 -- fired an add wave on the very first Update() frame instead of waiting out the interval
+        }
 
-            var sr = GetComponentInChildren<SpriteRenderer>();
-            if (sr != null) sr.color = new Color(0.35f, 0.55f, 0.3f);
+        // Hulking melee brute at boss scale -- Humanoid archetype, distinct from FrostLich's
+        // floating caster. SetInvulnerable's channel tell (BeginSpecialAttack/
+        // ResolveSpecialAttack below) depends on visualRenderers being set here.
+        protected override void AttachVisual()
+        {
+            var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+            {
+                bodyColor = new Color(0.3f, 0.45f, 0.25f),
+                accentColor = new Color(0.55f, 0.4f, 0.15f),
+                scale = 2.1f, horns = true, weapon = false, hunched = false
+            });
+            visualRenderers = built.renderers;
+            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+            spriteAnimator.bobHeight = 0.06f;
+            spriteAnimator.bobSpeed = 1.3f;
         }
 
         protected override void Update()

@@ -37,9 +37,10 @@ namespace DungeonCrawler.Enemies
         protected override void Awake()
         {
             enemyName = "Frost Lich";
-            spriteResourcePath = "Sprites/Enemies/Abyss/abyss_final_demon"; // no dedicated sprite yet -- icy tint carries the theme
-            spriteHeight = 1.6f;
-            healthBarHeight = 3.3f;
+            // The model's own bounding box is taller than the old sprite -- bumped so the
+            // health bar clears the model's head, same reasoning as AbyssFinalDemon's own
+            // sprite-to-model conversion (3.3 -> 3.6).
+            healthBarHeight = 3.6f;
             healthBarWidth = 2.2f;
 
             base.Awake();
@@ -47,9 +48,22 @@ namespace DungeonCrawler.Enemies
             attackCooldown = 2.2f;
             attackDamage = 16f;
             specialTimer = specialInterval;
+        }
 
-            var sr = GetComponentInChildren<SpriteRenderer>();
-            if (sr != null) sr.color = new Color(0.65f, 0.85f, 1f);
+        // Floating caster rather than Humanoid -- a lich reads better as a hovering
+        // channeler than a planted brute, and it visually distinguishes this boss from
+        // SwampWarden's hulking Humanoid silhouette.
+        protected override void AttachVisual()
+        {
+            var built = ProceduralMonster.FloatingCaster(transform, new ProceduralMonster.FloatingSpec {
+                robeColor = new Color(0.55f, 0.75f, 0.95f),
+                accentColor = new Color(0.85f, 0.95f, 1f),
+                scale = 1.9f, orb = true
+            });
+            visualRenderers = built.renderers;
+            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+            spriteAnimator.bobHeight = 0.07f;
+            spriteAnimator.bobSpeed = 1.6f;
         }
 
         protected override void Update()

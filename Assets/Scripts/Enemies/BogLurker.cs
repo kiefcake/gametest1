@@ -1,6 +1,7 @@
 using UnityEngine;
 using DungeonCrawler.Core;
 using DungeonCrawler.Loot;
+using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.Enemies
 {
@@ -38,14 +39,24 @@ namespace DungeonCrawler.Enemies
         protected override void Awake()
         {
             enemyName = "Bog Lurker";
-            spriteResourcePath = "Sprites/Enemies/Abyss/imp_demon"; // no dedicated sprite yet -- swamp tint below carries the theme
-            spriteHeight = 0.9f;
-            healthBarHeight = 1.9f;
+            healthBarHeight = 1.5f;
 
             base.Awake();
+        }
 
-            var sr = GetComponentInChildren<SpriteRenderer>();
-            if (sr != null) sr.color = new Color(0.35f, 0.5f, 0.3f); // swamp-green -- distinct from the Abyss imps' warm tones and the Crypt skeletons' ice-blue
+        // Amorphous swamp-muck creature -- Blob archetype rather than Humanoid, no limbs.
+        protected override void AttachVisual()
+        {
+            var built = ProceduralMonster.Blob(transform, new ProceduralMonster.BlobSpec
+            {
+                bodyColor = new Color(0.3f, 0.45f, 0.25f),
+                accentColor = new Color(0.7f, 0.9f, 0.3f),
+                scale = 1f
+            });
+            visualRenderers = built.renderers;
+            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+            spriteAnimator.bobHeight = 0.06f;
+            spriteAnimator.bobSpeed = 2.5f;
         }
 
         protected override void Attack()

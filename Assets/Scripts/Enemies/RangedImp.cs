@@ -1,4 +1,5 @@
 using UnityEngine;
+using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.Enemies
 {
@@ -33,9 +34,7 @@ namespace DungeonCrawler.Enemies
         protected override void Awake()
         {
             enemyName = "Imp Shaman";
-            spriteResourcePath = "Sprites/Enemies/Abyss/imp_demon_spiked"; // reuses existing art -- no dedicated ranged sprite exists yet
-            spriteHeight = 0.9f;
-            healthBarHeight = 1.9f;
+            healthBarHeight = 2.05f;
             moveSpeed = 1.6f; // slower than melee imps -- it's meant to kite, not brawl
 
             base.Awake();
@@ -43,6 +42,20 @@ namespace DungeonCrawler.Enemies
             attackCooldown = 2.2f; // slower fire rate than a melee imp's swing -- projectiles need to feel avoidable, not a stream
             attackDamage = 0f; // never melees -- Attack() is fully overridden below, this just keeps the field honest
             volleyTimer = volleyInterval; // was defaulting to 0 -- fired a volley on the very first Update() frame instead of waiting out the interval
+        }
+
+        protected override void AttachVisual()
+        {
+            var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+            {
+                bodyColor = new Color(0.5f, 0.2f, 0.55f),
+                accentColor = new Color(0.85f, 0.25f, 0.95f),
+                scale = 0.95f, horns = true, weapon = true, hunched = false
+            });
+            visualRenderers = built.renderers;
+            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+            spriteAnimator.bobHeight = 0.05f;
+            spriteAnimator.bobSpeed = 3f;
         }
 
         protected override void Update()

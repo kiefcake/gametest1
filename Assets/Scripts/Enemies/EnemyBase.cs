@@ -47,11 +47,16 @@ namespace DungeonCrawler.Enemies
         // ImpDemon.isSpikedVariant) swap the sprite post-hoc instead of needing to rebuild
         // the whole visual hierarchy.
         protected SpriteRenderer spriteRenderer;
+        // Every renderer SetInvulnerable should tint. A billboard sprite is a length-1 array
+        // (set by AttachVisual below); a procedural multi-primitive model (see
+        // ProceduralMonster) has one per body part -- SetInvulnerable no longer cares which,
+        // it just tints whatever this holds.
+        protected Renderer[] visualRenderers;
         // Caches the real tint the first time SetInvulnerable(true) runs, so repeated
         // on/off calls (e.g. re-entering a channel) restore the exact original color
-        // instead of drifting via double-lerping toward white.
-        private Color baseSpriteColor;
-        private bool baseSpriteColorCached;
+        // instead of drifting via double-lerping toward white. Indices line up with
+        // visualRenderers.
+        private Color[] baseVisualColors;
 
         [Header("Separation")]
         [Tooltip("Nothing here has a Rigidbody -- movement is direct transform manipulation, so Unity's physics never pushes overlapping enemies apart on its own. This radius/strength substitute for that.")]
@@ -108,6 +113,7 @@ namespace DungeonCrawler.Enemies
             var sr = SpriteVisual.Attach(transform, sprite, new Vector3(0, spriteHeight, 0), spriteScale);
             if (sr != null) spriteAnimator = sr.GetComponent<SpriteAnimator>();
             spriteRenderer = sr;
+            visualRenderers = sr != null ? new Renderer[] { sr } : null;
         }
 
         protected virtual void OnDestroy()
@@ -209,20 +215,30 @@ namespace DungeonCrawler.Enemies
 
         // Visually marks an invulnerability window (paired with Health.invulnerable) so the
         // player understands why hits stop registering, instead of a silent damage-immune
-        // flag -- reuses spriteRenderer (set by AttachVisual()) since every current caller of
-        // this needs both the flag and the tell together.
+        // flag -- tints every renderer in visualRenderers (set by AttachVisual()) since every
+        // current caller of this needs both the flag and the tell together.
         protected void SetInvulnerable(bool on)
         {
             if (health != null) health.invulnerable = on;
-            if (spriteRenderer == null) return;
+            if (visualRenderers == null || visualRenderers.Length == 0) return;
+
             if (on)
             {
-                if (!baseSpriteColorCached) { baseSpriteColor = spriteRenderer.color; baseSpriteColorCached = true; }
-                spriteRenderer.color = Color.Lerp(baseSpriteColor, Color.white, 0.65f); // pale "shielded" tint
+                if (baseVisualColors == null)
+                {
+                    baseVisualColors = new Color[visualRenderers.Length];
+                    for (int i = 0; i < visualRenderers.Length; i++)
+                        baseVisualColors[i] = visualRenderers[i] != null ? visualRenderers[i].material.color : Color.white;
+                }
+                for (int i = 0; i < visualRenderers.Length; i++)
+                    if (visualRenderers[i] != null)
+                        visualRenderers[i].material.color = Color.Lerp(baseVisualColors[i], Color.white, 0.65f); // pale "shielded" tint
             }
-            else if (baseSpriteColorCached)
+            else if (baseVisualColors != null)
             {
-                spriteRenderer.color = baseSpriteColor;
+                for (int i = 0; i < visualRenderers.Length; i++)
+                    if (visualRenderers[i] != null)
+                        visualRenderers[i].material.color = baseVisualColors[i];
             }
         }
 

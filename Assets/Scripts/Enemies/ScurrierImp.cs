@@ -1,4 +1,5 @@
 using UnityEngine;
+using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.Enemies
 {
@@ -12,10 +13,7 @@ namespace DungeonCrawler.Enemies
         protected override void Awake()
         {
             enemyName = "Imp Scurrier";
-            spriteResourcePath = "Sprites/Enemies/Abyss/imp_demon"; // no dedicated sprite yet -- a smaller, tinted version of the regular imp reads as a distinct variant
-            spriteScale = 0.65f;
-            spriteHeight = 0.6f;
-            healthBarHeight = 1.3f;
+            healthBarHeight = 1.5f;
             healthBarWidth = 0.8f;
 
             moveSpeed = 4.2f; // more than double ImpDemon's default 2
@@ -29,9 +27,20 @@ namespace DungeonCrawler.Enemies
 
             health.maxHP *= 0.35f;
             health.SetCurrentHP(health.maxHP);
+        }
 
-            var sr = GetComponentInChildren<SpriteRenderer>();
-            if (sr != null) sr.color = new Color(0.55f, 1f, 0.55f); // sickly green -- distinct from the regular/spiked imps' warm tones at a glance
+        protected override void AttachVisual()
+        {
+            var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+            {
+                bodyColor = new Color(0.55f, 1f, 0.55f), // sickly green -- distinct from the regular/spiked imps' warm tones at a glance
+                accentColor = new Color(0.3f, 0.6f, 0.3f),
+                scale = 0.7f, horns = false, weapon = false, hunched = true
+            });
+            visualRenderers = built.renderers;
+            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+            spriteAnimator.bobHeight = 0.05f;
+            spriteAnimator.bobSpeed = 5f;
         }
     }
 }

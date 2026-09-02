@@ -1,5 +1,6 @@
 using UnityEngine;
 using DungeonCrawler.Core;
+using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.Enemies
 {
@@ -25,16 +26,28 @@ namespace DungeonCrawler.Enemies
         protected override void Awake()
         {
             enemyName = "Imp";
-            spriteResourcePath = "Sprites/Enemies/Abyss/imp_demon";
-            spriteHeight = 0.9f;
-            healthBarHeight = 1.9f;
+            healthBarHeight = 2.1f;
 
             base.Awake();
         }
 
+        protected override void AttachVisual()
+        {
+            var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+            {
+                bodyColor = new Color(0.75f, 0.25f, 0.15f),
+                accentColor = new Color(0.15f, 0.05f, 0.05f),
+                scale = 1f, horns = true, weapon = false, hunched = false
+            });
+            visualRenderers = built.renderers;
+            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+            spriteAnimator.bobHeight = 0.06f;
+            spriteAnimator.bobSpeed = 3.5f;
+        }
+
         // Call this right after AddComponent<ImpDemon>() to actually get the spiked variant
         // -- setting isSpikedVariant alone no longer does anything, since Awake() has
-        // already run and already attached the non-spiked sprite by that point.
+        // already run and already attached the non-spiked model by that point.
         public void ApplyVariant(bool spiked)
         {
             isSpikedVariant = spiked;
@@ -45,10 +58,11 @@ namespace DungeonCrawler.Enemies
             health.maxHP *= 1.3f;
             health.SetCurrentHP(health.maxHP);
 
-            if (spriteRenderer != null)
+            // No separate spiked model -- darken/redden the existing one in place instead of rebuilding it.
+            if (visualRenderers != null)
             {
-                var sprite = Resources.Load<Sprite>("Sprites/Enemies/Abyss/imp_demon_spiked");
-                if (sprite != null) spriteRenderer.sprite = sprite;
+                foreach (var r in visualRenderers)
+                    if (r != null) r.material.color = Color.Lerp(r.material.color, new Color(0.35f, 0f, 0f), 0.35f);
             }
         }
 

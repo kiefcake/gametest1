@@ -2,6 +2,7 @@ using UnityEngine;
 using DungeonCrawler.Classes;
 using DungeonCrawler.World;
 using DungeonCrawler.Audio;
+using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.Enemies
 {
@@ -30,9 +31,7 @@ namespace DungeonCrawler.Enemies
         protected override void Awake()
         {
             enemyName = "Abyss Mage";
-            spriteResourcePath = "Sprites/Enemies/Abyss/imp_demon_spiked"; // no dedicated mage sprite yet -- reuses existing art like RangedImp does
-            spriteHeight = 1f;
-            healthBarHeight = 2f;
+            healthBarHeight = 1.9f;
             moveSpeed = 1.3f;
 
             base.Awake();
@@ -41,9 +40,22 @@ namespace DungeonCrawler.Enemies
             attackCooldown = 2.6f;
             health.maxHP *= 0.8f;
             health.SetCurrentHP(health.maxHP);
+        }
 
-            var sr = GetComponentInChildren<SpriteRenderer>();
-            if (sr != null) sr.color = new Color(0.55f, 0.65f, 1f); // cold blue -- distinct from the melee/ranged imps' warm tones
+        // Floating caster, not a humanoid -- the only enemy in this file with no legs,
+        // reads as hovering/channeling rather than planted like a melee brute.
+        protected override void AttachVisual()
+        {
+            var built = ProceduralMonster.FloatingCaster(transform, new ProceduralMonster.FloatingSpec
+            {
+                robeColor = new Color(0.35f, 0.4f, 0.75f),
+                accentColor = new Color(0.7f, 0.85f, 1f),
+                scale = 1f, orb = true
+            });
+            visualRenderers = built.renderers;
+            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+            spriteAnimator.bobHeight = 0.08f;
+            spriteAnimator.bobSpeed = 2.2f;
         }
 
         protected override void Update()
