@@ -64,7 +64,15 @@ namespace DungeonCrawler.World
             new Vector3(-7f, 0, -6f), new Vector3(7f, 0, -6f), new Vector3(0f, 0, 8f), new Vector3(-6f, 0, 5f),
         };
 
+        // Dais/pedestal sizing for BuildMonument -- kept as consts since both the geometry
+        // and the pedestal placement radius need to agree with each other.
+        private const float MonumentDaisRadius = 4f;
+        private const float MonumentDaisHeight = 0.6f;
+        private const float MonumentPedestalRadius = 3.2f; // just inside the dais edge
+        private const float MonumentPedestalHeight = 1.1f; // waist-high
+
         public Vector3 EntryPoint { get; private set; }
+        public Vector3 MonumentPoint { get; private set; }
         public BiomeZone Wastes { get; private set; }
         public BiomeZone Frostlands { get; private set; }
         public BiomeZone Marshlands { get; private set; }
@@ -80,6 +88,7 @@ namespace DungeonCrawler.World
             Frostlands = BuildBiome("The Frostlands", 0f, new Color(0.72f, 0.82f, 0.9f), HazardKind.Ice);
             Marshlands = BuildBiome("The Marshlands", 60f, new Color(0.22f, 0.26f, 0.16f), HazardKind.Bog);
 
+            BuildMonument();
             BuildPerimeterWalls();
         }
 
@@ -112,6 +121,48 @@ namespace DungeonCrawler.World
                 guardPoints = guardPoints,
                 roamPoints = roamPoints,
             };
+        }
+
+        // A shared plaza between EntryPoint and the three biome zones -- see
+        // GameBootstrap.SpawnMonumentReward for the payoff this decorates (RotMG's Oryx's
+        // Sanctuary: three runes each light a pedestal, all three lit unlocks a bonus at
+        // the shared monument). Sits at Z=15, well short of every zone's own camp (Z=53)
+        // and clear of every zone's hazard patches (nearest hazard offset lands 14 units
+        // away in X for Frostlands, further for Wastes/Marshlands whose hazards sit under
+        // their own off-center X) -- never overlaps a biome's own combat/camp footprint.
+        private void BuildMonument()
+        {
+            MonumentPoint = new Vector3(0, 0, 15f);
+
+            var dais = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            dais.name = "MonumentDais";
+            dais.transform.SetParent(transform);
+            dais.transform.position = MonumentPoint + new Vector3(0, MonumentDaisHeight / 2f, 0);
+            // Cylinder primitive default diameter 1 / height 2 at scale 1 -- scale.x/z by
+            // (2 * targetRadius), scale.y by (targetHeight / 2).
+            dais.transform.localScale = new Vector3(MonumentDaisRadius * 2f, MonumentDaisHeight / 2f, MonumentDaisRadius * 2f);
+            SetColor(dais, new Color(0.5f, 0.48f, 0.45f)); // weathered stone
+
+            // Triangle around the dais edge, one pedestal per camp, tinted and pointed
+            // toward the biome it represents -- Frostlands sits at centerX 0 so "straight
+            // ahead" (+Z, deeper into the overworld) is literally its own direction, while
+            // Wastes/Marshlands pedestals point along -X/+X toward their own zones.
+            BuildMonumentPedestal(new Vector3(-MonumentPedestalRadius, 0, 0), new Color(0.85f, 0.35f, 0.1f));  // Wastes
+            BuildMonumentPedestal(new Vector3(0, 0, MonumentPedestalRadius), new Color(0.55f, 0.85f, 1f));     // Frostlands
+            BuildMonumentPedestal(new Vector3(MonumentPedestalRadius, 0, 0), new Color(0.3f, 0.85f, 0.5f));    // Marshlands
+        }
+
+        // Small waist-high cube -- no collider concerns beyond the Cube primitive's own
+        // default (small, off to the side of the open plaza, never blocks the path through).
+        private void BuildMonumentPedestal(Vector3 offsetFromCenter, Color tint)
+        {
+            var pedestal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            pedestal.name = "MonumentPedestal";
+            pedestal.transform.SetParent(transform);
+            pedestal.transform.position = MonumentPoint + offsetFromCenter +
+                new Vector3(0, MonumentDaisHeight + MonumentPedestalHeight / 2f, 0);
+            pedestal.transform.localScale = new Vector3(0.6f, MonumentPedestalHeight, 0.6f);
+            SetColor(pedestal, tint);
         }
 
         private void BuildGroundPlane(Vector3 center, Color color)

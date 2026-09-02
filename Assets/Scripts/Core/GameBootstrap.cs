@@ -312,6 +312,13 @@ namespace DungeonCrawler
             PopulateFrostlands(world.Frostlands);
             PopulateMarshlands(world.Marshlands);
 
+            // RotMG's Oryx's Sanctuary inspiration -- three cleared camps (runes) light the
+            // shared monument and unlock a bonus pull on top of each camp's own dungeon-unlock payoff.
+            if (wastesCleared && frostlandsCleared && marshlandsCleared)
+            {
+                SpawnMonumentReward(world.MonumentPoint);
+            }
+
             BuildReturnGate(world.EntryPoint);
         }
 
@@ -831,6 +838,29 @@ namespace DungeonCrawler
 
             var picks = new List<Inventory.ItemData>();
             for (int i = 0; i < 3 && pool.Count > 0; i++)
+            {
+                int idx = Random.Range(0, pool.Count);
+                picks.Add(pool[idx]);
+                pool.RemoveAt(idx);
+            }
+
+            Chest.Spawn(pos, picks).transform.SetParent(dungeonRoot.transform);
+        }
+
+        // The all-three-camps payoff at OpenWorldLayout.MonumentPoint -- same pool-then-pick
+        // pattern as SpawnVaultLoot, just a bigger pull (5 instead of 3) since clearing all
+        // three camps is a bigger ask than reaching one vault room.
+        private void SpawnMonumentReward(Vector3 pos)
+        {
+            var table = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
+            if (table == null) return;
+
+            var pool = new List<Inventory.ItemData>();
+            foreach (var entry in table.entries)
+                if (entry.item != null) pool.Add(entry.item);
+
+            var picks = new List<Inventory.ItemData>();
+            for (int i = 0; i < 5 && pool.Count > 0; i++)
             {
                 int idx = Random.Range(0, pool.Count);
                 picks.Add(pool[idx]);
