@@ -289,15 +289,11 @@ namespace DungeonCrawler.World
             floor.transform.localScale = new Vector3(radius * 2f, 0.05f, radius * 2f);
             SetColor(floor, floorColor);
 
-            // BuildCircularWallRing only skips whole 15-degree segments (not partial ones),
-            // and each kept segment is widened 15% to avoid seams -- the widened segments
-            // immediately next to a gap encroach into it, so a gapHalfAngle just past the
-            // "pure chord" value only ever skips a single segment regardless of
-            // corridorWidth, leaving real clearance well under the intended width. The +16
-            // pushes past a full 15-degree segment spacing so the two neighboring segments
-            // get skipped too, guaranteeing a wide, unambiguous opening instead of one
-            // narrow segment's worth.
-            float gapHalfAngle = Mathf.Asin(Mathf.Clamp01((corridorWidth / 2f) / radius)) * Mathf.Rad2Deg + 16f;
+            // BuildCircularWallRing now builds each kept arc directly from this exact
+            // boundary angle (see its own comment) -- no fixed grid to round to, so no
+            // fudge-factor margin needed here either. A small +4 keeps the opening
+            // comfortably wider than the raw corridor chord, not to dodge a rounding error.
+            float gapHalfAngle = Mathf.Asin(Mathf.Clamp01((corridorWidth / 2f) / radius)) * Mathf.Rad2Deg + 4f;
             BuildCircularWallRing(center, radius, new float[] { 0f, 180f }, gapHalfAngle);
 
             if (buildCeiling)
@@ -348,32 +344,52 @@ namespace DungeonCrawler.World
             BuildRamp(rampTop, rampBottom, 3f);
         }
 
-        // Builds the ring as short wall segments, each tangent to the circle at its own
-        // angle (local X becomes the tangent direction, local Z the radial thickness, once
-        // rotated by that angle around Y) -- skips any segment whose center angle falls
-        // within gapHalfAngle of one of gapAnglesDeg, which is where a corridor connects.
+        // Builds the ring as two walled arcs (each tangent-segmented, local X the tangent
+        // direction / local Z the radial thickness once rotated by its own angle around Y),
+        // leaving the two gaps between them where a corridor connects.
+        //
+        // Rebuilt from scratch -- the previous approach approximated the gaps onto a fixed
+        // 24-segment/15-degree grid ("skip whichever segments fall near the gap angle") and
+        // needed a padding trick to hide seams between kept segments; two rounds of tuning
+        // that padding/margin still left a real, physical wall corner sitting somewhere
+        // inside what looked like an open doorway. Rather than find a third magic number,
+        // this drops the fixed grid entirely: it only ever needs to handle exactly the two
+        // opposite gaps this codebase calls it with (0/180 degrees), so it builds the two
+        // KEPT arcs (east side, west side) as their own continuous polylines, each sized to
+        // that arc's own exact start/end angle. Every arc's first and last vertex lands
+        // exactly on the real gap boundary -- there's no "does this 15-degree slice happen to
+        // land near the gap" approximation left to get subtly wrong.
         private void BuildCircularWallRing(Vector3 center, float radius, float[] gapAnglesDeg, float gapHalfAngle)
         {
-            const int segments = 24;
-            float segmentAngle = 360f / segments;
-            float chordLength = 2f * radius * Mathf.Sin(segmentAngle * Mathf.Deg2Rad / 2f);
-            float paddedWidth = chordLength * 1.15f; // slight overlap so interior segments don't leave visible seams
+            float gapA = gapAnglesDeg[0];
+            float gapB = gapAnglesDeg.Length > 1 ? gapAnglesDeg[1] : gapA + 180f;
 
-            for (int i = 0; i < segments; i++)
+            BuildCircularWallArc(center, radius, gapA + gapHalfAngle, gapB - gapHalfAngle);
+            BuildCircularWallArc(center, radius, gapB + gapHalfAngle, gapA + 360f - gapHalfAngle);
+        }
+
+        // One continuous stretch of wall from startAngle to endAngle (degrees; startAngle is
+        // always less than endAngle here, possibly past 360 to express wrapping through 0),
+        // subdivided into straight segments sized to THIS arc's own exact span -- so both
+        // ends land precisely on the caller's intended boundary instead of the nearest point
+        // on some unrelated fixed grid.
+        private void BuildCircularWallArc(Vector3 center, float radius, float startAngle, float endAngle)
+        {
+            float span = endAngle - startAngle;
+            if (span <= 0.01f) return;
+
+            const float targetSegmentAngle = 15f; // roughly matches the old fixed grid's segment size, purely cosmetic
+            int segmentCount = Mathf.Max(1, Mathf.RoundToInt(span / targetSegmentAngle));
+            float segmentAngle = span / segmentCount;
+            // A hairline 1% overlap only to hide the render seam between segments WITHIN
+            // this same arc (a few centimeters at 15-unit radius) -- nothing like the old
+            // 15% padding, and nowhere near enough to reach past this arc's own start/end
+            // angle into the gap on either side.
+            float segmentWidth = 2f * radius * Mathf.Sin(segmentAngle * Mathf.Deg2Rad / 2f) * 1.01f;
+
+            for (int i = 0; i < segmentCount; i++)
             {
-                float angle = i * segmentAngle;
-                bool inGap = false;
-                bool bordersGap = false;
-                foreach (var gapAngle in gapAnglesDeg)
-                {
-                    float dist = Mathf.Abs(Mathf.DeltaAngle(angle, gapAngle));
-                    if (dist <= gapHalfAngle) { inGap = true; break; }
-                    // Within one segment-step of the gap boundary -- this segment's own
-                    // slice is adjacent to the opening.
-                    if (dist <= gapHalfAngle + segmentAngle) bordersGap = true;
-                }
-                if (inGap) continue;
-
+                float angle = startAngle + (i + 0.5f) * segmentAngle; // this segment's own center angle
                 float rad = angle * Mathf.Deg2Rad;
                 Vector3 pos = center + new Vector3(Mathf.Sin(rad) * radius, wallHeight / 2f, Mathf.Cos(rad) * radius);
 
@@ -382,14 +398,7 @@ namespace DungeonCrawler.World
                 wall.transform.SetParent(transform);
                 wall.transform.position = pos;
                 wall.transform.rotation = Quaternion.Euler(0, angle, 0);
-                // A segment bordering a gap uses its exact, unpadded chord width -- the
-                // 1.15x overlap that hides seams between INTERIOR segments was, on a
-                // gap-adjacent segment, eating into the gap opening itself from both sides
-                // (the widened neighbor closest to the gap on each edge), narrowing the real
-                // clear passage well below what corridorWidth/gapHalfAngle intended. This is
-                // the actual "can't walk through, wall reads as open" bug: the gap looked
-                // wide enough but a widened wall corner was still sitting inside it.
-                wall.transform.localScale = new Vector3(bordersGap ? chordLength : paddedWidth, wallHeight, wallThickness);
+                wall.transform.localScale = new Vector3(segmentWidth, wallHeight, wallThickness);
                 SetColor(wall, wallColor);
             }
         }
