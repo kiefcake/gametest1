@@ -18,6 +18,16 @@ namespace DungeonCrawler.Enemies
         public float projectileSpeed = 9f;
         public float projectileDamage = 9f;
 
+        [Header("Special: channeled fan volley")]
+        [Tooltip("Every volleyInterval the imp freezes in place (invulnerable, same shape as the boss channels) and fires a multi-shot fan at the end of the channel -- predictable movement (frozen) plus a real shot pattern to dodge, instead of just the single dodgeable bolt.")]
+        public float volleyInterval = 9f;
+        public int volleyCount = 5;
+        public float volleySpreadAngle = 70f; // total fan width in degrees, centered on the target
+        public float volleyChannelTime = 0.7f;
+        private float volleyTimer;
+        private bool channelingVolley;
+        private float volleyChannelElapsed;
+
         private float rangedAttackTimer;
 
         protected override void Awake()
@@ -32,12 +42,24 @@ namespace DungeonCrawler.Enemies
 
             attackCooldown = 2.2f; // slower fire rate than a melee imp's swing -- projectiles need to feel avoidable, not a stream
             attackDamage = 0f; // never melees -- Attack() is fully overridden below, this just keeps the field honest
+            volleyTimer = volleyInterval; // was defaulting to 0 -- fired a volley on the very first Update() frame instead of waiting out the interval
         }
 
         protected override void Update()
         {
             if (health.IsDowned || target == null) return;
             if (statusController.IsParalyzed) return;
+
+            if (channelingVolley)
+            {
+                volleyChannelElapsed += Time.deltaTime;
+                if (volleyChannelElapsed >= volleyChannelTime)
+                {
+                    FireVolley();
+                    channelingVolley = false;
+                }
+                return; // frozen in place for the whole channel -- no retreat/approach/normal-attack, same as the bosses' own channels
+            }
 
             float dist = Vector3.Distance(transform.position, target.position);
 
@@ -59,6 +81,15 @@ namespace DungeonCrawler.Enemies
                     rangedAttackTimer = attackCooldown * Random.Range(0.85f, 1.15f);
                 }
             }
+
+            volleyTimer -= Time.deltaTime;
+            if (volleyTimer <= 0f && target != null)
+            {
+                channelingVolley = true;
+                volleyChannelElapsed = 0f;
+                SetInvulnerable(true);
+                volleyTimer = volleyInterval;
+            }
         }
 
         protected override void Attack()
@@ -66,6 +97,33 @@ namespace DungeonCrawler.Enemies
             Vector3 origin = transform.position + Vector3.up;
             Vector3 dir = (target.position + Vector3.up) - origin;
             Projectile.Spawn(origin, dir, projectileSpeed, projectileDamage, new Color(0.85f, 0.25f, 0.95f));
+        }
+
+        // Fired once, when the channel completes -- volleyCount bolts fanned evenly across
+        // volleySpreadAngle centered on the target, so the whole channel reads as one
+        // dodgeable pattern rather than several independent single shots.
+        private void FireVolley()
+        {
+            // target could in principle have gone null mid-channel (aggro reset etc.) --
+            // guard defensively even though Update()'s own top-of-frame target==null return
+            // means this method is only ever reached with a live target in practice.
+            if (target != null)
+            {
+                Vector3 origin = transform.position + Vector3.up;
+                Vector3 baseDir = (target.position + Vector3.up) - origin;
+                float halfSpread = volleySpreadAngle / 2f;
+
+                for (int i = 0; i < volleyCount; i++)
+                {
+                    float t = volleyCount > 1 ? (float)i / (volleyCount - 1) : 0.5f;
+                    float angleOffset = Mathf.Lerp(-halfSpread, halfSpread, t);
+                    Vector3 dir = Quaternion.Euler(0, angleOffset, 0) * baseDir;
+                    Projectile.Spawn(origin, dir, projectileSpeed, projectileDamage * 0.5f, new Color(0.85f, 0.25f, 0.95f));
+                }
+
+                spriteAnimator?.PulseAttack();
+            }
+            SetInvulnerable(false); // unconditional -- never leave the imp permanently invulnerable even if target vanished mid-channel
         }
     }
 }

@@ -47,6 +47,11 @@ namespace DungeonCrawler.Enemies
         // ImpDemon.isSpikedVariant) swap the sprite post-hoc instead of needing to rebuild
         // the whole visual hierarchy.
         protected SpriteRenderer spriteRenderer;
+        // Caches the real tint the first time SetInvulnerable(true) runs, so repeated
+        // on/off calls (e.g. re-entering a channel) restore the exact original color
+        // instead of drifting via double-lerping toward white.
+        private Color baseSpriteColor;
+        private bool baseSpriteColorCached;
 
         [Header("Separation")]
         [Tooltip("Nothing here has a Rigidbody -- movement is direct transform manipulation, so Unity's physics never pushes overlapping enemies apart on its own. This radius/strength substitute for that.")]
@@ -198,6 +203,25 @@ namespace DungeonCrawler.Enemies
             float dmgMod = statusController.HasEffect(StatusEffectType.Weaken) ? 0.7f : 1f;
             target.GetComponent<IHealth>()?.TakeDamage(attackDamage * dmgMod, ignoreDef: false);
             if (spriteAnimator != null) spriteAnimator.PulseAttack();
+        }
+
+        // Visually marks an invulnerability window (paired with Health.invulnerable) so the
+        // player understands why hits stop registering, instead of a silent damage-immune
+        // flag -- reuses spriteRenderer (set by AttachVisual()) since every current caller of
+        // this needs both the flag and the tell together.
+        protected void SetInvulnerable(bool on)
+        {
+            if (health != null) health.invulnerable = on;
+            if (spriteRenderer == null) return;
+            if (on)
+            {
+                if (!baseSpriteColorCached) { baseSpriteColor = spriteRenderer.color; baseSpriteColorCached = true; }
+                spriteRenderer.color = Color.Lerp(baseSpriteColor, Color.white, 0.65f); // pale "shielded" tint
+            }
+            else if (baseSpriteColorCached)
+            {
+                spriteRenderer.color = baseSpriteColor;
+            }
         }
 
         public void SetTarget(Transform t) => target = t;

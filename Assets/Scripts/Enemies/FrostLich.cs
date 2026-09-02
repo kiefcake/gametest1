@@ -93,6 +93,7 @@ namespace DungeonCrawler.Enemies
             channeling = true;
             channelElapsed = 0f;
             specialTimer = specialInterval;
+            SetInvulnerable(true); // frozen-in-place channel is the telegraph -- now backed by actual damage immunity
 
             telegraphGO = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             telegraphGO.name = "FrostNovaTelegraph";
@@ -123,6 +124,7 @@ namespace DungeonCrawler.Enemies
         {
             if (telegraphGO != null) Destroy(telegraphGO);
             channeling = false;
+            SetInvulnerable(false);
 
             var hits = Physics.OverlapSphere(transform.position, specialRadius);
             foreach (var hit in hits)

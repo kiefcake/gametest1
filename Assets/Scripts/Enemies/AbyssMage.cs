@@ -100,6 +100,7 @@ namespace DungeonCrawler.Enemies
             casting = true;
             castElapsed = 0f;
             castTargetPos = target.position;
+            SetInvulnerable(true); // channel is the telegraph -- now backed by actual damage immunity, same as the bosses
 
             telegraphGO = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             telegraphGO.name = "MageTelegraph";
@@ -125,6 +126,7 @@ namespace DungeonCrawler.Enemies
         {
             casting = false;
             if (telegraphGO != null) Destroy(telegraphGO);
+            SetInvulnerable(false);
 
             var hits = Physics.OverlapSphere(castTargetPos, aoeRadius);
             foreach (var hit in hits)
@@ -133,6 +135,25 @@ namespace DungeonCrawler.Enemies
                 if (pc != null && pc.health != null) pc.health.TakeDamage(aoeDamage, ignoreDef: false);
             }
             SfxLibrary.PlayAt(SfxLibrary.Hit, castTargetPos, 0.5f);
+
+            FireRingBurst();
+        }
+
+        // Turns the single ground-AoE telegraph into a two-layer dodge: the marked ground
+        // (above) AND an outward ring of bolts from the mage's own position, fired the
+        // instant the cast resolves. Full 360-degree spread -- unlike RangedImp's forward
+        // fan, this has no "safe side" to duck to.
+        private void FireRingBurst()
+        {
+            const int ringCount = 8;
+            Vector3 origin = transform.position + Vector3.up;
+            Color ringColor = new Color(0.45f, 0.75f, 1f); // cold blue, distinct from RangedImp's magenta bolts but in the mage's own tint family
+
+            for (int i = 0; i < ringCount; i++)
+            {
+                Vector3 dir = Quaternion.Euler(0, i * 45f, 0) * Vector3.forward;
+                Projectile.Spawn(origin, dir, speed: 7f, damage: 7f, color: ringColor);
+            }
         }
 
         protected override void HandleDeath()
