@@ -1,4 +1,7 @@
+using System.Collections.Generic;
 using UnityEngine;
+using DungeonCrawler.Classes;
+using DungeonCrawler.UI;
 
 namespace DungeonCrawler.World
 {
@@ -67,6 +70,56 @@ namespace DungeonCrawler.World
         private float RoomSpacing => roomDepth + corridorLength;
         private DungeonTheme theme;
 
+        // Which of the five room slots along the chain a given RoomInfo/trigger belongs
+        // to -- indexes RoomInfoTable rather than duplicating the name/flavor lookup logic
+        // per room.
+        private enum RoomSlot { Entry, Combat, Combat2, Vault, Boss }
+
+        private readonly struct RoomInfo
+        {
+            public readonly string name;
+            public readonly string flavor;
+            public RoomInfo(string name, string flavor) { this.name = name; this.flavor = flavor; }
+        }
+
+        // Dark and Darker-style room names/flavor lines for RoomBanner (see UI/RoomBanner.cs)
+        // -- one row per dungeon theme, indexed by RoomSlot. Entry fires immediately (no
+        // walk-in -- see AnnounceRoom); the other four fire via RoomEntryTrigger once the
+        // player actually walks into the room.
+        private static readonly Dictionary<DungeonTheme, RoomInfo[]> RoomInfoTable = new Dictionary<DungeonTheme, RoomInfo[]>
+        {
+            {
+                DungeonTheme.Abyss, new[]
+                {
+                    new RoomInfo("The Threshold", "Cold stone gives way to something warmer, and wrong."),
+                    new RoomInfo("The Cinder Ring", "A ring of scorched stone. Something's been fighting here a long time."),
+                    new RoomInfo("The Bone Choir", "Old bones underfoot; every step sounds like it's being heard."),
+                    new RoomInfo("The Ember Vault", "Whoever built this vault didn't plan on leaving."),
+                    new RoomInfo("The Demon's Hearth", "The heat here isn't the floor. It's him."),
+                }
+            },
+            {
+                DungeonTheme.FrozenCrypt, new[]
+                {
+                    new RoomInfo("The Rime Gate", "Frost creeps up the walls like it's trying to seal the door behind you."),
+                    new RoomInfo("The Frozen Choir", "A perfect circle of ice, too clean to be natural."),
+                    new RoomInfo("The Cracked Nave", "The floor groans. It's holding, for now."),
+                    new RoomInfo("The Glacial Hold", "Whatever's kept safe in here has been safe a very long time."),
+                    new RoomInfo("The Lich's Sanctum", "The cold has a source, and it's watching you find it."),
+                }
+            },
+            {
+                DungeonTheme.SunkenRuins, new[]
+                {
+                    new RoomInfo("The Silted Steps", "The water's shallow here. It gets deeper."),
+                    new RoomInfo("The Drowned Round", "A flooded chamber, ankle-deep and getting worse."),
+                    new RoomInfo("The Silt Reliquary", "A shrine, once. The bog's had it longer than the gods did."),
+                    new RoomInfo("The Brackish Hoard", "Rust and rot, but the good kind of rust."),
+                    new RoomInfo("The Warden's Mire", "The whole room breathes. That's not a good sign."),
+                }
+            },
+        };
+
         // Explicit call instead of building in Awake() -- GameBootstrap needs to hand this
         // a theme (which room/enemy content to build) before generation runs, the same
         // reason PlayerCharacter.Initialize() exists instead of doing everything in Awake.
@@ -84,9 +137,13 @@ namespace DungeonCrawler.World
 
             BuildRoom(EntryPoint, entryFloorColor, openNorth: true, openSouth: false, hazardous: false);
             BuildCircularRoom(CombatPoint, combatFloorColor, circularRoomRadius);
+            BuildRoomEntryTrigger(CombatPoint, RoomSlot.Combat);
             BuildRoom(Combat2Point, combatFloorColor, openNorth: true, openSouth: true, hazardous: true, westTunnel: true, platform: true);
+            BuildRoomEntryTrigger(Combat2Point, RoomSlot.Combat2);
             BuildRoom(VaultPoint, vaultFloorColor, openNorth: true, openSouth: true, hazardous: true);
+            BuildRoomEntryTrigger(VaultPoint, RoomSlot.Vault);
             BuildRoom(BossPoint, bossFloorColor, openNorth: false, openSouth: true, hazardous: true);
+            BuildRoomEntryTrigger(BossPoint, RoomSlot.Boss);
 
             BuildCorridor((EntryPoint + CombatPoint) / 2f);
             BuildCorridor((CombatPoint + Combat2Point) / 2f);
@@ -94,6 +151,39 @@ namespace DungeonCrawler.World
             BuildCorridor((VaultPoint + BossPoint) / 2f);
 
             BuildVerticalTunnel(Combat2Point);
+
+            // The entry room has no walk-in -- GameBootstrap teleports the player directly
+            // to EntryPoint -- so it announces itself immediately instead of via a trigger.
+            AnnounceRoom(RoomSlot.Entry);
+        }
+
+        // Shows a room's RoomBanner (see UI/RoomBanner.cs) directly, looked up from
+        // RoomInfoTable for the currently-building theme. Only ever called for Entry today
+        // (see the end of Build()) -- the other four rooms announce themselves via
+        // RoomEntryTrigger instead, once the player actually walks in.
+        private void AnnounceRoom(RoomSlot slot)
+        {
+            var info = RoomInfoTable[theme][(int)slot];
+            RoomBanner.Show(info.name, info.flavor);
+        }
+
+        // Places a one-shot RoomEntryTrigger at a room's center -- see RoomEntryTrigger
+        // below. Trigger-only SphereCollider, so this adds zero solid geometry and can't
+        // block movement or snag a ramp/platform underneath it.
+        private void BuildRoomEntryTrigger(Vector3 center, RoomSlot slot)
+        {
+            var info = RoomInfoTable[theme][(int)slot];
+            var triggerGO = new GameObject("RoomEntryTrigger_" + slot);
+            triggerGO.transform.SetParent(transform);
+            triggerGO.transform.position = center;
+
+            var col = triggerGO.AddComponent<SphereCollider>();
+            col.isTrigger = true;
+            col.radius = 6f;
+
+            var trigger = triggerGO.AddComponent<RoomEntryTrigger>();
+            trigger.roomName = info.name;
+            trigger.flavor = info.flavor;
         }
 
         // Icy blue/white instead of the Abyss's dark red/black -- overrides the color
@@ -736,6 +826,28 @@ namespace DungeonCrawler.World
             if (renderer != null)
             {
                 renderer.material = new Material(Shader.Find("Standard")) { color = c };
+            }
+        }
+
+        // One-shot "you've arrived" trigger for RoomBanner (see BuildRoomEntryTrigger) --
+        // fires the banner the first time the player's own collider passes through it, then
+        // destroys itself so backtracking through an already-visited room doesn't re-show
+        // the name. Sphere is trigger-only (see BuildRoomEntryTrigger), so it never blocks
+        // movement or interferes with the room's real geometry.
+        //
+        // Identifies the player the same way Projectile/AbyssMage already do off a trigger
+        // collision: GetComponentInParent<PlayerCharacter>() off the collider that entered,
+        // rather than a tag or layer check.
+        private class RoomEntryTrigger : MonoBehaviour
+        {
+            public string roomName;
+            public string flavor;
+
+            private void OnTriggerEnter(Collider other)
+            {
+                if (other.GetComponentInParent<PlayerCharacter>() == null) return;
+                RoomBanner.Show(roomName, flavor);
+                Destroy(gameObject);
             }
         }
     }
