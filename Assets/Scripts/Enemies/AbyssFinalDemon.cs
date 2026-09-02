@@ -209,6 +209,14 @@ namespace DungeonCrawler.Enemies
             // application brings the boss back down to a manageable damage/speed level.
             attackDamage *= enrageDamageMultiplier;
             attackCooldown /= enrageAttackSpeedMultiplier;
+
+            // RotMG Shatters-style escalation: phase 2 doesn't just buff the boss, it makes
+            // the arena itself worse -- fixed at the boss's position now, not following it.
+            Vector3 origin = transform.position;
+            HazardVisuals.SpawnPatch(transform.parent, origin + new Vector3(4f, 0, 3f), 2.5f,
+                new Color(0.9f, 0.35f, 0.05f), new Color(0.7f, 0.15f, 0.02f), new Color(1f, 0.6f, 0.1f));
+            HazardVisuals.SpawnPatch(transform.parent, origin + new Vector3(-4f, 0, -3f), 2.5f,
+                new Color(0.9f, 0.35f, 0.05f), new Color(0.7f, 0.15f, 0.02f), new Color(1f, 0.6f, 0.1f));
         }
 
         protected override void Attack()
