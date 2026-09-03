@@ -4,10 +4,14 @@ using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.Enemies
 {
-    // The abyss dungeon's basic enemy. Sprite: Sprites/Enemies/Abyss/imp_demon.png
-    // (or imp_demon_spiked.png for the tougher variant).
+    // The abyss dungeon's basic enemy. Real imported mesh (Models/Enemies/imp.obj) built
+    // the same way demon_imp.obj was -- a script computing lathed/revolved geometry and
+    // exporting real OBJ data, not a neural "3D generator." Falls back to the primitive
+    // ProceduralMonster.Humanoid build if the resource is ever missing, same defensive
+    // shape AbyssFinalDemon.AttachVisual() already uses for its own imported mesh.
     public class ImpDemon : EnemyBase
     {
+        private const string ImpModelResourcePath = "Models/Enemies/imp";
         // Was read directly in Awake() to pick sprite/name and apply the damage/HP bump --
         // but every caller (GameBootstrap.SpawnImp included) only ever set this AFTER
         // AddComponent<ImpDemon>(), and AddComponent<T>() runs Awake() synchronously before
@@ -26,24 +30,39 @@ namespace DungeonCrawler.Enemies
         protected override void Awake()
         {
             enemyName = "Imp";
-            healthBarHeight = 2.1f;
+            healthBarHeight = 1.8f; // the real mesh (~1.5-1.6 units tall) sits a bit shorter than the old primitive build this replaced
 
             base.Awake();
         }
 
         protected override void AttachVisual()
         {
-            var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+            var model = Resources.Load<GameObject>(ImpModelResourcePath);
+            if (model == null)
             {
-                bodyColor = new Color(0.75f, 0.25f, 0.15f),
-                accentColor = new Color(0.15f, 0.05f, 0.05f),
-                scale = 1f, horns = true, weapon = false, hunched = false
-            });
-            visualRenderers = built.renderers;
-            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
-            spriteAnimator.bobHeight = 0.06f;
+                var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+                {
+                    bodyColor = new Color(0.75f, 0.25f, 0.15f),
+                    accentColor = new Color(0.15f, 0.05f, 0.05f),
+                    scale = 1f, horns = true, weapon = false, hunched = false
+                });
+                visualRenderers = built.renderers;
+                spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+                spriteAnimator.bobHeight = 0.06f;
+                spriteAnimator.bobSpeed = 3.5f;
+                AttachLimbAnimator(built);
+                return;
+            }
+
+            var modelGO = Instantiate(model, transform);
+            modelGO.name = "ImpModel";
+            modelGO.transform.localPosition = Vector3.zero;
+            modelGO.transform.localRotation = Quaternion.identity;
+
+            visualRenderers = modelGO.GetComponentsInChildren<Renderer>();
+            spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
+            spriteAnimator.bobHeight = 0.05f;
             spriteAnimator.bobSpeed = 3.5f;
-            AttachLimbAnimator(built);
         }
 
         // Call this right after AddComponent<ImpDemon>() to actually get the spiked variant

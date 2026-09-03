@@ -130,16 +130,24 @@ namespace DungeonCrawler.Visuals
                     new Vector3(0.06f * s, 0.24f * s, 0.06f * s), Quaternion.Euler(0, 0, 18f), spec.accentColor));
             }
 
+            // Arm half-length below the shoulder pivot -- matches the leg pattern just
+            // below (BuildLimbPivot at the hip, capsule offset -legLen*0.5 so it hangs
+            // down from it). The arm capsules used to sit at Vector3.zero, i.e. CENTERED
+            // on the shoulder rather than hanging from it -- the top half of each arm
+            // stuck straight up past the shoulder toward head height on every humanoid in
+            // the game, which is what actually read as "arms raised by the head" instead
+            // of hanging at the sides.
+            const float armHalfLen = 0.35f;
             float armY = torsoY + 0.15f * s;
             var leftShoulder = BuildLimbPivot(root, new Vector3(-0.45f * s, armY, 0));
-            var leftArmCapsule = AddPart(leftShoulder, PrimitiveType.Capsule, Vector3.zero,
-                new Vector3(0.16f * s, 0.35f * s, 0.16f * s), Quaternion.Euler(0, 0, 20f), spec.bodyColor);
+            var leftArmCapsule = AddPart(leftShoulder, PrimitiveType.Capsule, new Vector3(0, -armHalfLen * s, 0),
+                new Vector3(0.16f * s, armHalfLen * s, 0.16f * s), Quaternion.Euler(0, 0, 20f), spec.bodyColor);
             renderers.Add(leftArmCapsule);
             AddClawPair(leftArmCapsule.transform, renderers, spec.accentColor);
 
             var rightShoulder = BuildLimbPivot(root, new Vector3(0.45f * s, armY, 0));
-            var rightArmCapsule = AddPart(rightShoulder, PrimitiveType.Capsule, Vector3.zero,
-                new Vector3(0.16f * s, 0.35f * s, 0.16f * s), Quaternion.Euler(0, 0, -20f), spec.bodyColor);
+            var rightArmCapsule = AddPart(rightShoulder, PrimitiveType.Capsule, new Vector3(0, -armHalfLen * s, 0),
+                new Vector3(0.16f * s, armHalfLen * s, 0.16f * s), Quaternion.Euler(0, 0, -20f), spec.bodyColor);
             renderers.Add(rightArmCapsule);
             AddClawPair(rightArmCapsule.transform, renderers, spec.accentColor);
 
@@ -157,7 +165,7 @@ namespace DungeonCrawler.Visuals
                 // s-scaled units, same as the original root-relative position) rather than
                 // the arm capsule -- rides along with the whole arm's walk-cycle swing,
                 // which is the more natural read for something held in a swinging hand.
-                renderers.Add(AddPart(rightShoulder, PrimitiveType.Cube, new Vector3(0.15f * s, -0.05f * s, 0.3f * s),
+                renderers.Add(AddPart(rightShoulder, PrimitiveType.Cube, new Vector3(0.15f * s, -0.55f * s, 0.3f * s),
                     new Vector3(0.05f * s, 0.55f * s, 0.05f * s), Quaternion.Euler(25f, 0, -15f), spec.accentColor));
             }
 
