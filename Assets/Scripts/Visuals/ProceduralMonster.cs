@@ -19,6 +19,14 @@ namespace DungeonCrawler.Visuals
     // shoulder pivots so a caller can drive a walk cycle via ProceduralLimbAnimator.
     public static class ProceduralMonster
     {
+        // Resolved once instead of on every AddPart call -- Shader.Find does a string
+        // lookup, and a single Serpent build alone is ~16-24 AddPart calls; enemies that
+        // rebuild their model repeatedly at runtime (SnakeGrateSpawner's periodic Pit
+        // Snakes, Stheno's Phase-2 swarms and pet respawns) made this the highest-call-
+        // count Shader.Find site in the project.
+        private static readonly Shader StandardShader = Shader.Find("Standard");
+
+
         public struct Built
         {
             public Transform root;
@@ -46,7 +54,7 @@ namespace DungeonCrawler.Visuals
             go.transform.localRotation = localRot;
             go.transform.localScale = localScale;
             var renderer = go.GetComponent<Renderer>();
-            var mat = new Material(Shader.Find("Standard")) { color = color };
+            var mat = new Material(StandardShader) { color = color };
             if (emissive)
             {
                 mat.EnableKeyword("_EMISSION");

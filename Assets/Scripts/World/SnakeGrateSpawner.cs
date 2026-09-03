@@ -24,8 +24,14 @@ namespace DungeonCrawler.World
 
         private void Update()
         {
+            // Checked before decrementing -- if this returned only via the OR below, timer
+            // would keep draining negative for the whole time the grate sits at its cap,
+            // and the moment a slot freed up it'd spawn immediately (a banked burst)
+            // instead of waiting out a fresh spawnInterval like it's supposed to.
+            if (aliveCount >= maxAlive) return;
+
             timer -= Time.deltaTime;
-            if (timer > 0f || aliveCount >= maxAlive) return;
+            if (timer > 0f) return;
             timer = spawnInterval;
 
             Vector3 pos = transform.position + new Vector3(Random.Range(-1.5f, 1.5f), 0, Random.Range(-1.5f, 1.5f));

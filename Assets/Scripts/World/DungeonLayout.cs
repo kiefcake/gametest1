@@ -303,29 +303,7 @@ namespace DungeonCrawler.World
             // not just uniform decoration everywhere.
             if (hazardous)
             {
-                if (theme == DungeonTheme.FrozenCrypt)
-                {
-                    BuildIcePatch(center + new Vector3(6f, 0, 4f), 2.5f);
-                    BuildIceSpikes(center + new Vector3(-8f, 0, -3f));
-                    BuildIceSpikes(center + new Vector3(5f, 0, -8f));
-                }
-                else if (theme == DungeonTheme.SunkenRuins)
-                {
-                    BuildPoisonBog(center + new Vector3(6f, 0, 4f), 2.5f);
-                    BuildReedCluster(center + new Vector3(-8f, 0, -3f));
-                    BuildReedCluster(center + new Vector3(5f, 0, -8f));
-                }
-                else if (theme == DungeonTheme.SnakePit)
-                {
-                    BuildSnakeGrate(center + new Vector3(6f, 0, 4f));
-                    BuildSnakeGrate(center + new Vector3(-7f, 0, -5f));
-                }
-                else
-                {
-                    BuildLavaPool(center + new Vector3(6f, 0, 4f), 2.5f);
-                    BuildBonePile(center + new Vector3(-8f, 0, -3f));
-                    BuildBonePile(center + new Vector3(5f, 0, -8f));
-                }
+                BuildThemedHazardCluster(center + new Vector3(6f, 0, 4f), center + new Vector3(-8f, 0, -3f), center + new Vector3(5f, 0, -8f));
             }
 
             // A raised platform in the room's south-east corner, up a ramp -- a ranged
@@ -397,29 +375,7 @@ namespace DungeonCrawler.World
                 BuildTorch(center + new Vector3(-(radius - 2f), 1.1f, 0));
             }
 
-            if (theme == DungeonTheme.FrozenCrypt)
-            {
-                BuildIcePatch(center + new Vector3(-6f, 0, -6f), 2.5f);
-                BuildIceSpikes(center + new Vector3(-8f, 0, 5f));
-                BuildIceSpikes(center + new Vector3(6f, 0, -8f));
-            }
-            else if (theme == DungeonTheme.SunkenRuins)
-            {
-                BuildPoisonBog(center + new Vector3(-6f, 0, -6f), 2.5f);
-                BuildReedCluster(center + new Vector3(-8f, 0, 5f));
-                BuildReedCluster(center + new Vector3(6f, 0, -8f));
-            }
-            else if (theme == DungeonTheme.SnakePit)
-            {
-                BuildSnakeGrate(center + new Vector3(-6f, 0, -6f));
-                BuildSnakeGrate(center + new Vector3(6f, 0, -8f));
-            }
-            else
-            {
-                BuildLavaPool(center + new Vector3(-6f, 0, -6f), 2.5f);
-                BuildBonePile(center + new Vector3(-8f, 0, 5f));
-                BuildBonePile(center + new Vector3(6f, 0, -8f));
-            }
+            BuildThemedHazardCluster(center + new Vector3(-6f, 0, -6f), center + new Vector3(-8f, 0, 5f), center + new Vector3(6f, 0, -8f));
 
             if (buildSniperPlatform)
             {
@@ -662,6 +618,42 @@ namespace DungeonCrawler.World
                 reed.transform.rotation = Quaternion.Euler(Random.Range(-6f, 6f), Random.Range(0f, 360f), Random.Range(-6f, 6f));
                 reed.transform.localScale = new Vector3(0.07f, Random.Range(0.5f, 0.85f), 0.07f);
                 SetColor(reed, reedColor);
+            }
+        }
+
+        // Single theme-dispatch point for a hazardous room's decor -- BuildRoom and
+        // BuildCircularRoom each used to carry their own identical copy of this branch.
+        // Every theme but SnakePit uses all three positions (a pool plus two decor
+        // clusters); SnakePit only needs two grates, so it uses poolPos and decorB (the
+        // rectangular room's own SnakePit branch used to place its second grate at a
+        // third, slightly different offset than either decorA or decorB -- normalized to
+        // decorB here to match the circular room's own SnakePit branch, which already did
+        // this; the couple of units it moves a decorative prop by isn't worth carrying a
+        // fourth position parameter just to preserve).
+        private void BuildThemedHazardCluster(Vector3 poolPos, Vector3 decorA, Vector3 decorB)
+        {
+            if (theme == DungeonTheme.FrozenCrypt)
+            {
+                BuildIcePatch(poolPos, 2.5f);
+                BuildIceSpikes(decorA);
+                BuildIceSpikes(decorB);
+            }
+            else if (theme == DungeonTheme.SunkenRuins)
+            {
+                BuildPoisonBog(poolPos, 2.5f);
+                BuildReedCluster(decorA);
+                BuildReedCluster(decorB);
+            }
+            else if (theme == DungeonTheme.SnakePit)
+            {
+                BuildSnakeGrate(poolPos);
+                BuildSnakeGrate(decorB);
+            }
+            else
+            {
+                BuildLavaPool(poolPos, 2.5f);
+                BuildBonePile(decorA);
+                BuildBonePile(decorB);
             }
         }
 

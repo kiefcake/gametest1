@@ -111,7 +111,7 @@ namespace DungeonCrawler.Abilities
         {
             if (ability.isCleanse)
             {
-                target.GetComponent<StatusEffectController>()?.CleanseOne();
+                target.GetComponent<StatusEffectController>()?.CleanseAll();
             }
             if (ability.healAmount > 0f)
             {

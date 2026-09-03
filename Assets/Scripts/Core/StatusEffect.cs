@@ -79,21 +79,21 @@ namespace DungeonCrawler.Core
             return e != null ? e.magnitude : 0f;
         }
 
-        // Call from a healer/cleanse ability. Removes ONE effect from a priority list
-        // (poison/bleed first, since those are the most commonly cleansed).
-        public bool CleanseOne()
+        // Every negative status effect this cleanses -- deliberately excludes Fortified/
+        // Empowered (the two positive self-buffs) so cleansing an ally mid-buff (a Knight
+        // under Bulwark Stance, say) never strips it back off them.
+        private static readonly StatusEffectType[] DebuffTypes = {
+            StatusEffectType.Poison, StatusEffectType.Bleed, StatusEffectType.Curse,
+            StatusEffectType.Weaken, StatusEffectType.ArmorBreak, StatusEffectType.Sick,
+            StatusEffectType.Paralyze, StatusEffectType.Blind, StatusEffectType.Slow
+        };
+
+        // Call from a cleansing heal (Priest's Mending Light) -- strips every active
+        // debuff in one cast rather than the single worst one, so it actually answers a
+        // boss that's stacked two or three different effects on someone at once.
+        public int CleanseAll()
         {
-            StatusEffectType[] priority = {
-                StatusEffectType.Poison, StatusEffectType.Bleed, StatusEffectType.Curse,
-                StatusEffectType.Weaken, StatusEffectType.ArmorBreak, StatusEffectType.Sick,
-                StatusEffectType.Paralyze, StatusEffectType.Blind, StatusEffectType.Slow
-            };
-            foreach (var t in priority)
-            {
-                var e = active.Find(x => x.type == t);
-                if (e != null) { active.Remove(e); return true; }
-            }
-            return false;
+            return active.RemoveAll(e => System.Array.IndexOf(DebuffTypes, e.type) >= 0);
         }
 
         private void Update()

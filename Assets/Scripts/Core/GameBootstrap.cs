@@ -615,6 +615,7 @@ namespace DungeonCrawler
         {
             Debug.Log("[Bootstrap] EnterSnakePit() called");
             var layout = PrepareDungeonRoot("SnakePit", DungeonTheme.SnakePit, new Color(0.16f, 0.11f, 0.06f));
+            if (spawnAbyssEncounter)
             {
                 SpawnPitSnake(layout.CombatPoint + new Vector3(3, 0, 2));
                 SpawnPitSnake(layout.CombatPoint + new Vector3(-3, 0, 2));
@@ -711,6 +712,7 @@ namespace DungeonCrawler
 
         private void ReturnToHub()
         {
+            player.statusController?.CleanseAll(); // walking back to the "safe" hub still poisoned/cursed defeats the point of it being safe
             TeleportPlayer(hubEntryPoint);
             RenderSettings.fog = false;
         }
@@ -723,6 +725,7 @@ namespace DungeonCrawler
         {
             player.health.Revive(0.5f);
             if (player.mana != null) player.mana.SetMax(player.mana.maxMP, refill: true);
+            player.statusController?.CleanseAll(); // dying with an active DoT/debuff shouldn't carry it into the hub
             RunModifiers.ResetAll(); // this counts as the run ending -- see BeginRun's identical reset
             TeleportPlayer(hubEntryPoint);
             RenderSettings.fog = false;
@@ -930,7 +933,7 @@ namespace DungeonCrawler
             var go = new GameObject("SthenoSnakeQueen");
             go.transform.position = pos;
             go.transform.SetParent(dungeonRoot.transform);
-            go.AddComponent<Health>();
+            var h = go.AddComponent<Health>();
             go.AddComponent<StatusEffectController>();
             go.AddComponent<SthenoSnakeQueen>();
             go.AddComponent<AggroController>();
@@ -939,6 +942,7 @@ namespace DungeonCrawler
             loot.minGold = 90;
             loot.maxGold = 140;
             loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
+            h.OnDeath += PlayerProgress.MarkSnakePitBossDefeated;
         }
 
         // Guaranteed loot (no kill required) in the vault room, pulled straight from the

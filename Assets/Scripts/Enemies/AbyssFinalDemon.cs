@@ -109,7 +109,13 @@ namespace DungeonCrawler.Enemies
                 EnterPhase2();
             }
 
-            if (!inPhase2)
+            // Gated on target != null the same way BeginSpecialAttack() below already is --
+            // and checked before decrementing, not just before spawning: otherwise the
+            // timer would free-fall negative for however long a player spends clearing
+            // earlier rooms, and the instant they arrived it'd spawn an add pair immediately
+            // instead of waiting out a fresh addSpawnInterval (same failure shape as
+            // SnakeGrateSpawner's timer-while-capped bug).
+            if (!inPhase2 && target != null)
             {
                 addSpawnTimer -= Time.deltaTime;
                 if (addSpawnTimer <= 0f)

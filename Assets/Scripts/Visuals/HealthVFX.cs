@@ -5,16 +5,21 @@ using DungeonCrawler.Audio;
 namespace DungeonCrawler.Visuals
 {
     // Subscribes to Health.OnDamaged/OnHealed to spawn a floating number and briefly
-    // flash any SpriteRenderers under this object -- attach alongside Health so every
-    // damage source (player abilities, enemy melee, status DoT ticks) gets the same
-    // feedback without each of those call sites needing to know about visuals at all.
+    // flash any Renderers under this object -- attach alongside Health so every damage
+    // source (player abilities, enemy melee, status DoT ticks) gets the same feedback
+    // without each of those call sites needing to know about visuals at all. Generic
+    // Renderer rather than SpriteRenderer specifically: this is added to both the player
+    // and every enemy, and every enemy's visual is now a MeshRenderer-based
+    // ProceduralMonster model (or AbyssFinalDemon's imported mesh) rather than a sprite
+    // billboard -- SpriteRenderer-only used to match everything back when sprites were
+    // the only visual this codebase had, but silently flashed nothing once that changed.
     [RequireComponent(typeof(Health))]
     public class HealthVFX : MonoBehaviour
     {
         public float flashDuration = 0.15f;
 
         private Health health;
-        private SpriteRenderer[] sprites;
+        private Renderer[] renderers;
         private Color[] originalColors;
         private float flashTimer;
 
@@ -46,17 +51,17 @@ namespace DungeonCrawler.Visuals
 
         private void StartFlash()
         {
-            if (sprites == null) sprites = GetComponentsInChildren<SpriteRenderer>();
-            if (sprites.Length == 0) return; // e.g. the player has no visible sprite body -- damage number still shows
+            if (renderers == null) renderers = GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) return; // e.g. no visible body yet -- damage number still shows
 
-            if (originalColors == null || originalColors.Length != sprites.Length)
+            if (originalColors == null || originalColors.Length != renderers.Length)
             {
-                originalColors = new Color[sprites.Length];
-                for (int i = 0; i < sprites.Length; i++) originalColors[i] = sprites[i].color;
+                originalColors = new Color[renderers.Length];
+                for (int i = 0; i < renderers.Length; i++) originalColors[i] = renderers[i].material.color;
             }
 
             flashTimer = flashDuration;
-            for (int i = 0; i < sprites.Length; i++) sprites[i].color = Color.white;
+            for (int i = 0; i < renderers.Length; i++) renderers[i].material.color = Color.white;
         }
 
         private void Update()
@@ -65,7 +70,7 @@ namespace DungeonCrawler.Visuals
             flashTimer -= Time.deltaTime;
             if (flashTimer <= 0f)
             {
-                for (int i = 0; i < sprites.Length; i++) sprites[i].color = originalColors[i];
+                for (int i = 0; i < renderers.Length; i++) renderers[i].material.color = originalColors[i];
             }
         }
     }

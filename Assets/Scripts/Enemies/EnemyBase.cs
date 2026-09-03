@@ -309,7 +309,10 @@ namespace DungeonCrawler.Enemies
         {
             if (target != null || health.IsDowned) return;
             var player = FindFirstObjectByType<PlayerCharacter>(); // solo play -- same shortcut AggroController's own scan already takes
-            if (player != null) target = player.transform;
+            // Matches AggroController's own "ignore downed players, don't reward tunneling
+            // a corpse" rule -- without this check, a DoT tick landing after the player
+            // goes down could pull an enemy onto them anyway.
+            if (player != null && (player.health == null || !player.health.IsDowned)) target = player.transform;
         }
     }
 }

@@ -97,7 +97,11 @@ namespace DungeonCrawler.Enemies
                 EnterPhase2();
             }
 
-            if (!inPhase2)
+            // Gated on target != null and checked before decrementing -- see
+            // AbyssFinalDemon's identical fix for why (avoids both spawning adds before any
+            // player has reached the boss room, and banking a burst spawn for the moment
+            // one arrives).
+            if (!inPhase2 && target != null)
             {
                 addSpawnTimer -= Time.deltaTime;
                 if (addSpawnTimer <= 0f)
