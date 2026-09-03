@@ -69,6 +69,10 @@ namespace DungeonCrawler.Enemies
         public float weaveSpeed = 2.5f;
         private float weavePhase;
 
+        [Header("Facing")]
+        [Tooltip("How fast the model turns to face its target, in degrees/second. Lives in LateUpdate rather than Update so it applies uniformly no matter how a subclass's own Update() decides to move or attack -- several (AbyssMage, RangedImp) fully override Update() with no base.Update() call at all, so putting this in Update() itself would have silently skipped them.")]
+        public float turnSpeedDegrees = 360f;
+
         protected virtual void Awake()
         {
             weavePhase = Random.Range(0f, 100f); // desyncs multiple enemies weaving in lockstep
@@ -116,6 +120,22 @@ namespace DungeonCrawler.Enemies
             visualRenderers = sr != null ? new Renderer[] { sr } : null;
         }
 
+        // Shared by every AttachVisual() override that builds a ProceduralMonster.Humanoid
+        // -- wires its hip/shoulder pivots into a walk-cycle animator on the model root, so
+        // the swing tracks THIS enemy's own (non-bobbing) transform rather than the model
+        // root SpriteAnimator is busy bobbing. A no-op for the FloatingCaster/Blob
+        // archetypes, whose Built has no pivots to wire (all null, which
+        // ProceduralLimbAnimator already treats as "nothing to animate there").
+        protected void AttachLimbAnimator(ProceduralMonster.Built built)
+        {
+            var limbAnimator = built.root.gameObject.AddComponent<ProceduralLimbAnimator>();
+            limbAnimator.moveTracker = transform;
+            limbAnimator.leftHip = built.leftHip;
+            limbAnimator.rightHip = built.rightHip;
+            limbAnimator.leftShoulder = built.leftShoulder;
+            limbAnimator.rightShoulder = built.rightShoulder;
+        }
+
         protected virtual void OnDestroy()
         {
             if (health != null)
@@ -132,6 +152,29 @@ namespace DungeonCrawler.Enemies
         protected virtual void HandleDeath()
         {
             Destroy(gameObject, destroyDelayAfterDeath);
+        }
+
+        // Turns the whole enemy (not just its visual model) to face its target every
+        // frame, regardless of whether this frame moved, attacked, or channeled a special
+        // -- previously nothing ever rotated an enemy at all, so it could stand fighting
+        // you while facing an entirely different direction, which is a big part of why a
+        // model with a real face/eyes on it still read as a lifeless mannequin. Routed
+        // through LateUpdate (see the Facing header's tooltip) so every subclass gets this
+        // for free without needing to remember to call a base method from its own
+        // Update() override. RotateTowards rather than a hard snap so a fast-turning
+        // target doesn't make the enemy visibly teleport-face; horizontal-only (toTarget.y
+        // zeroed) so an enemy on a platform doesn't pitch to stare up/down at a target on
+        // a different Y level.
+        protected virtual void LateUpdate()
+        {
+            if (health == null || health.IsDowned || target == null) return;
+
+            Vector3 toTarget = target.position - transform.position;
+            toTarget.y = 0f;
+            if (toTarget.sqrMagnitude < 0.0001f) return;
+
+            Quaternion wanted = Quaternion.LookRotation(toTarget.normalized, Vector3.up);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, wanted, turnSpeedDegrees * Time.deltaTime);
         }
 
         protected virtual void Update()

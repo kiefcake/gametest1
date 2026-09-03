@@ -43,6 +43,7 @@ namespace DungeonCrawler.Enemies
             spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.06f;
             spriteAnimator.bobSpeed = 3.5f;
+            AttachLimbAnimator(built);
         }
 
         // Call this right after AddComponent<ImpDemon>() to actually get the spiked variant

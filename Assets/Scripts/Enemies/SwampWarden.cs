@@ -73,6 +73,7 @@ namespace DungeonCrawler.Enemies
             spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.06f;
             spriteAnimator.bobSpeed = 1.3f;
+            AttachLimbAnimator(built);
         }
 
         protected override void Update()
