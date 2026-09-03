@@ -1,5 +1,6 @@
 using UnityEngine;
 using DungeonCrawler.Enemies;
+using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.World
 {
@@ -26,15 +27,24 @@ namespace DungeonCrawler.World
 
             health.maxHP = 500f;
             health.SetCurrentHP(health.maxHP);
+        }
 
-            var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            body.name = "DummyVisual";
-            body.transform.SetParent(transform);
-            body.transform.localPosition = new Vector3(0, 1f, 0);
-            Destroy(body.GetComponent<Collider>()); // the root's own collider (added by EnemyBase.Awake) is the real one
-            var renderer = body.GetComponent<Renderer>();
-            if (renderer != null)
-                renderer.material = new Material(Shader.Find("Standard")) { color = new Color(0.55f, 0.45f, 0.3f) };
+        // Used to build its own capsule directly in Awake() instead of overriding this --
+        // harmless for movement (a dummy never moves), but it meant visualRenderers/
+        // spriteAnimator were never set, so HealthVFX's hit-flash silently never worked on
+        // it either. Same Humanoid archetype every other humanoid uses now.
+        protected override void AttachVisual()
+        {
+            var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+            {
+                bodyColor = new Color(0.55f, 0.45f, 0.3f),
+                accentColor = new Color(0.75f, 0.65f, 0.4f),
+                scale = 1f, horns = false, weapon = false, hunched = false
+            });
+            visualRenderers = built.renderers;
+            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+            spriteAnimator.bobHeight = 0.02f; // barely any bob -- an inanimate practice dummy, not a living creature
+            spriteAnimator.bobSpeed = 1f;
         }
 
         protected override void HandleDeath()

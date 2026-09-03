@@ -120,23 +120,32 @@ namespace DungeonCrawler.Classes
             BuildVisual(def);
         }
 
-        // No player-body art exists yet (Sprites/ only has weapon/potion icons), so this
-        // stands the class up as a role-colored capsule plus a billboarded weapon icon --
-        // enough to tell classes apart at a glance during testing. Swap for real sprites
-        // by replacing this method once player art exists; nothing outside it depends on
-        // the capsule specifically.
+        // Was a bare role-colored capsule (the last object in the game still on that art
+        // style) -- every enemy in the game moved to a real 3D silhouette via
+        // ProceduralMonster this session, so the player's own body was the one glaring
+        // holdout. Reuses the same Humanoid archetype every humanoid enemy already uses
+        // (no horns/weapon prop -- the weapon reads through the floating icon below and
+        // the first-person viewmodel instead) so a teammate's class is still readable at a
+        // glance by silhouette and color, exactly like the old capsule was meant to be.
         private void BuildVisual(ClassDefinition def)
         {
-            var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            body.name = "Visual";
-            body.layer = LocalVisualLayer;
-            body.transform.SetParent(transform);
-            body.transform.localPosition = new Vector3(0, 1f, 0);
-            Destroy(body.GetComponent<Collider>()); // the root's CapsuleCollider (added above) is the real one, used for AoE detection
+            Color roleColor = ClassDefinition.RoleColor(def.role);
+            var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+            {
+                bodyColor = roleColor,
+                accentColor = Color.Lerp(roleColor, Color.white, 0.6f),
+                scale = 1f, horns = false, weapon = false, hunched = false
+            });
+            built.root.name = "Visual";
+            built.root.localPosition = Vector3.zero;
 
-            var renderer = body.GetComponent<Renderer>();
-            if (renderer != null)
-                renderer.material = new Material(Shader.Find("Standard")) { color = ClassDefinition.RoleColor(def.role) };
+            // Every part needs the layer set individually -- Unity's culling mask checks
+            // each GameObject's own layer, it doesn't cascade down from a parent's.
+            foreach (var t in built.root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = LocalVisualLayer;
+
+            var animator = built.root.gameObject.AddComponent<SpriteAnimator>();
+            animator.bobHeight = 0.05f;
+            animator.bobSpeed = 2.5f;
 
             if (def.weaponSprite != null)
             {

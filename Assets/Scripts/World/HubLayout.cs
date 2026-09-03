@@ -1,5 +1,6 @@
 using UnityEngine;
 using DungeonCrawler.Core;
+using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.World
 {
@@ -350,11 +351,25 @@ namespace DungeonCrawler.World
             counter.transform.localScale = new Vector3(2.4f, 1f, 0.7f);
             SetColor(counter, new Color(0.32f, 0.22f, 0.14f));
 
-            var npc = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            npc.name = "NPC";
-            npc.transform.SetParent(stallRoot.transform);
-            npc.transform.localPosition = new Vector3(0, 1f, -0.2f);
-            SetColor(npc, npcColor);
+            // Same Humanoid archetype every humanoid enemy (and the player, see
+            // PlayerCharacter.BuildVisual) already uses -- was the last bare capsule left
+            // in the hub. A CapsuleCollider is added back manually since ProceduralMonster
+            // parts always destroy their own (decorative-only there, since an enemy's
+            // CharacterController is what actually collides) -- this NPC has no such
+            // stand-in, and losing its solid body would let the player walk straight
+            // through it.
+            var npcBuilt = ProceduralMonster.Humanoid(stallRoot.transform, new ProceduralMonster.HumanoidSpec
+            {
+                bodyColor = npcColor,
+                accentColor = Color.Lerp(npcColor, Color.white, 0.5f),
+                scale = 1f, horns = false, weapon = false, hunched = false
+            });
+            npcBuilt.root.name = "NPC";
+            npcBuilt.root.localPosition = new Vector3(0, 0, -0.2f);
+            var npcCol = npcBuilt.root.gameObject.AddComponent<CapsuleCollider>();
+            npcCol.height = 1.9f;
+            npcCol.radius = 0.35f;
+            npcCol.center = new Vector3(0, 0.95f, 0);
 
             BuildLantern(pos + new Vector3(-1.6f, WallHeight - 0.4f, -0.6f));
 
@@ -512,11 +527,19 @@ namespace DungeonCrawler.World
             BuildLantern(wingCenter + new Vector3(WingHalfWidth - 0.5f, WallHeight - 0.6f, WingHalfDepth - 1.5f));
             BuildLantern(wingCenter + new Vector3(WingHalfWidth - 0.5f, WallHeight - 0.6f, -(WingHalfDepth - 1.5f)));
 
-            var npc = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            npc.name = "Gambler";
-            npc.transform.SetParent(transform);
-            npc.transform.position = wingCenter + new Vector3(-6f, 1f, 0);
-            SetColor(npc, new Color(0.5f, 0.15f, 0.15f));
+            Color gamblerColor = new Color(0.5f, 0.15f, 0.15f);
+            var gamblerBuilt = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+            {
+                bodyColor = gamblerColor,
+                accentColor = Color.Lerp(gamblerColor, Color.white, 0.5f),
+                scale = 1f, horns = false, weapon = false, hunched = false
+            });
+            gamblerBuilt.root.name = "Gambler";
+            gamblerBuilt.root.position = wingCenter + new Vector3(-6f, 0, 0);
+            var gamblerCol = gamblerBuilt.root.gameObject.AddComponent<CapsuleCollider>();
+            gamblerCol.height = 1.9f;
+            gamblerCol.radius = 0.35f;
+            gamblerCol.center = new Vector3(0, 0.95f, 0);
 
             var table = GameObject.CreatePrimitive(PrimitiveType.Cube);
             table.name = "GambleTable";
