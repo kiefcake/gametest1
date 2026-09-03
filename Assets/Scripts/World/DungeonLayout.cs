@@ -11,7 +11,7 @@ namespace DungeonCrawler.World
     // without duplicating any of that structural code. Add a case here plus an Apply*
     // Palette method and a hazard branch (see BuildRoom/BuildCircularRoom) for each new
     // dungeon theme.
-    public enum DungeonTheme { Abyss, FrozenCrypt, SunkenRuins }
+    public enum DungeonTheme { Abyss, FrozenCrypt, SunkenRuins, SnakePit }
 
     // A real (if crude) dungeon: five rooms in a line -- Entry, two Combat rooms, a Vault,
     // and the Boss -- joined by corridors, instead of BlockoutRoom's single flat box. Same
@@ -119,7 +119,24 @@ namespace DungeonCrawler.World
                     new RoomInfo("The Warden's Mire", "The whole room breathes. That's not a good sign."),
                 }
             },
+            {
+                DungeonTheme.SnakePit, new[]
+                {
+                    new RoomInfo("The Cracked Narthex", "Stone steps worn smooth by scales, not sandals."),
+                    new RoomInfo("The Serpent's Coil", "The walls hiss when the wind changes. So do the floors."),
+                    new RoomInfo("The Fang Gallery", "Old temple murals, scoured clean by centuries of shedding."),
+                    new RoomInfo("The Sunken Reliquary", "Whatever the priests buried here, the snakes buried deeper."),
+                    new RoomInfo("Stheno's Sanctum", "She doesn't guard the temple anymore. She is the temple."),
+                }
+            },
         };
+
+        // Set once Build() finishes, if this run happened to roll one -- null on any run
+        // that didn't (roughly 60% of the time, and never at all when VaultPoint itself
+        // rolled circular, since circular rooms only support the two opposite corridor
+        // gaps, not a third branch). GameBootstrap reads this to decide whether to place a
+        // bonus reward there.
+        public Vector3? TreasureAlcovePoint { get; private set; }
 
         // Explicit call instead of building in Awake() -- GameBootstrap needs to hand this
         // a theme (which room/enemy content to build) before generation runs, the same
@@ -129,6 +146,7 @@ namespace DungeonCrawler.World
             theme = dungeonTheme;
             if (theme == DungeonTheme.FrozenCrypt) ApplyFrozenCryptPalette();
             else if (theme == DungeonTheme.SunkenRuins) ApplySunkenRuinsPalette();
+            else if (theme == DungeonTheme.SnakePit) ApplySnakePitPalette();
 
             EntryPoint = Vector3.zero;
             CombatPoint = new Vector3(0, 0, RoomSpacing);
@@ -137,12 +155,38 @@ namespace DungeonCrawler.World
             BossPoint = new Vector3(0, 0, RoomSpacing * 4f);
 
             BuildRoom(EntryPoint, entryFloorColor, openNorth: true, openSouth: false, hazardous: false);
-            BuildCircularRoom(CombatPoint, combatFloorColor, circularRoomRadius);
+
+            // Procedural shape roll -- Combat and Vault each independently pick circular or
+            // rectangular per generation, so no two runs of the same dungeon look
+            // identical. Combat2 always stays rectangular: it structurally needs the west
+            // tunnel gap plus a platform in a specific corner, and circular rooms only
+            // support the two opposite (north/south) corridor gaps this generator ever
+            // asks of them -- extending that wall-ring math to a third, differently-shaped
+            // gap isn't worth the risk for one room slot.
+            if (Random.value < 0.5f)
+            {
+                BuildCircularRoom(CombatPoint, combatFloorColor, circularRoomRadius);
+            }
+            else
+            {
+                BuildRoom(CombatPoint, combatFloorColor, openNorth: true, openSouth: true, hazardous: true, platform: true, platformIsPrimary: true);
+            }
             BuildRoomEntryTrigger(CombatPoint, RoomSlot.Combat);
+
             BuildRoom(Combat2Point, combatFloorColor, openNorth: true, openSouth: true, hazardous: true, westTunnel: true, platform: true);
             BuildRoomEntryTrigger(Combat2Point, RoomSlot.Combat2);
-            BuildRoom(VaultPoint, vaultFloorColor, openNorth: true, openSouth: true, hazardous: true);
+
+            bool vaultCircular = Random.value < 0.5f;
+            // A treasure alcove needs a real west-wall gap (see BuildTreasureAlcove), which
+            // only a rectangular Vault can offer -- same reasoning as Combat2 above.
+            bool treasureAlcove = !vaultCircular && Random.value < 0.4f;
+            if (vaultCircular)
+                BuildCircularRoom(VaultPoint, vaultFloorColor, circularRoomRadius, buildSniperPlatform: false);
+            else
+                BuildRoom(VaultPoint, vaultFloorColor, openNorth: true, openSouth: true, hazardous: true, westTunnel: treasureAlcove);
+            if (treasureAlcove) TreasureAlcovePoint = BuildTreasureAlcove(VaultPoint);
             BuildRoomEntryTrigger(VaultPoint, RoomSlot.Vault);
+
             BuildRoom(BossPoint, bossFloorColor, openNorth: false, openSouth: true, hazardous: true);
             BuildRoomEntryTrigger(BossPoint, RoomSlot.Boss);
 
@@ -214,7 +258,24 @@ namespace DungeonCrawler.World
             ceilingColor = new Color(0.06f, 0.12f, 0.1f);
         }
 
-        private void BuildRoom(Vector3 center, Color floorColor, bool openNorth, bool openSouth, bool hazardous, bool westTunnel = false, bool platform = false)
+        // Earthy brown stone with red/blue accent trim instead of any of the other three
+        // themes' cold-vs-hot palettes -- matches the real Snake Pit's "brown floor tiles,
+        // many cracked, brown walls with red and blue drawings" description. The red/blue
+        // "drawings" read through wallColor's own baseboard/cap trim bands (see
+        // DungeonLayout.AddWallTrim) rather than a literal mural texture this project has
+        // no way to paint.
+        private void ApplySnakePitPalette()
+        {
+            entryFloorColor = new Color(0.36f, 0.28f, 0.16f);
+            combatFloorColor = new Color(0.3f, 0.22f, 0.12f);
+            vaultFloorColor = new Color(0.32f, 0.26f, 0.15f);
+            bossFloorColor = new Color(0.24f, 0.16f, 0.09f);
+            corridorFloorColor = new Color(0.28f, 0.2f, 0.11f);
+            wallColor = new Color(0.4f, 0.3f, 0.18f);
+            ceilingColor = new Color(0.16f, 0.11f, 0.06f);
+        }
+
+        private void BuildRoom(Vector3 center, Color floorColor, bool openNorth, bool openSouth, bool hazardous, bool westTunnel = false, bool platform = false, bool platformIsPrimary = false)
         {
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "RoomFloor";
@@ -254,6 +315,11 @@ namespace DungeonCrawler.World
                     BuildReedCluster(center + new Vector3(-8f, 0, -3f));
                     BuildReedCluster(center + new Vector3(5f, 0, -8f));
                 }
+                else if (theme == DungeonTheme.SnakePit)
+                {
+                    BuildSnakeGrate(center + new Vector3(6f, 0, 4f));
+                    BuildSnakeGrate(center + new Vector3(-7f, 0, -5f));
+                }
                 else
                 {
                     BuildLavaPool(center + new Vector3(6f, 0, 4f), 2.5f);
@@ -265,10 +331,17 @@ namespace DungeonCrawler.World
             // A raised platform in the room's south-east corner, up a ramp -- a ranged
             // enemy posted here (see GameBootstrap) has to actually be climbed up to and
             // engaged, not just shot at from below with no way to close the gap.
+            // platformIsPrimary picks which of the two named points GameBootstrap reads:
+            // Combat2's platform (the only one this ever built before room shape was
+            // randomized) stays the default, and a rectangular Combat room -- previously
+            // always circular, now sometimes not -- passes platformIsPrimary so its own
+            // sniper spot still ends up in CombatPlatformPoint like GameBootstrap expects
+            // regardless of which shape Combat rolled this run.
             if (platform)
             {
                 Vector3 platformTop = center + new Vector3(roomWidth / 2f - 5f, platformHeight, -(roomDepth / 2f - 5f));
-                Combat2PlatformPoint = platformTop; // only Combat2Point passes platform:true today
+                if (platformIsPrimary) CombatPlatformPoint = platformTop;
+                else Combat2PlatformPoint = platformTop;
                 BuildPlatform(platformTop);
                 Vector3 rampBottom = platformTop + new Vector3(0, -platformHeight, platformHalfSize + 5f);
                 Vector3 rampTop = platformTop + new Vector3(0, 0, platformHalfSize);
@@ -276,11 +349,21 @@ namespace DungeonCrawler.World
             }
         }
 
-        // A ring-walled circular arena instead of a rectangular box -- CombatPoint
-        // specifically, for room-shape variety. North/south openings line up with the
-        // corridors the same way a rectangular room's doors do (see BuildCircularWallRing);
-        // everything else around the ring is solid wall built from short tangent segments.
-        private void BuildCircularRoom(Vector3 center, Color floorColor, float radius)
+        // A ring-walled circular arena instead of a rectangular box -- for room-shape
+        // variety, now rollable for either Combat or Vault (see Build()). North/south
+        // openings line up with the corridors the same way a rectangular room's doors do
+        // (see BuildCircularWallRing); everything else around the ring is solid wall built
+        // from short tangent segments.
+        //
+        // buildSniperPlatform defaults to true (Combat's own historical behavior, back when
+        // this was the only room that could ever be circular) -- pass false for a Vault
+        // that happens to roll circular, since Vault has no platform in its rectangular
+        // form either and GameBootstrap has nothing to spawn on one there. Without this
+        // flag, a circular Vault built AFTER Combat in Build()'s call order would
+        // unconditionally overwrite CombatPlatformPoint with its own platform's position,
+        // silently breaking GameBootstrap's SpawnRangedImp(layout.CombatPlatformPoint) call
+        // for that run.
+        private void BuildCircularRoom(Vector3 center, Color floorColor, float radius, bool buildSniperPlatform = true)
         {
             var floor = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             floor.name = "RoomFloor";
@@ -326,6 +409,11 @@ namespace DungeonCrawler.World
                 BuildReedCluster(center + new Vector3(-8f, 0, 5f));
                 BuildReedCluster(center + new Vector3(6f, 0, -8f));
             }
+            else if (theme == DungeonTheme.SnakePit)
+            {
+                BuildSnakeGrate(center + new Vector3(-6f, 0, -6f));
+                BuildSnakeGrate(center + new Vector3(6f, 0, -8f));
+            }
             else
             {
                 BuildLavaPool(center + new Vector3(-6f, 0, -6f), 2.5f);
@@ -333,15 +421,18 @@ namespace DungeonCrawler.World
                 BuildBonePile(center + new Vector3(6f, 0, -8f));
             }
 
-            // Sniper platform to the east, well clear of both corridor openings (0 deg and
-            // 180 deg) -- the ramp climbs toward the room's own center so it can't run past
-            // the wall on the far side.
-            Vector3 platformTop = center + new Vector3(radius - 6f, platformHeight, 0);
-            CombatPlatformPoint = platformTop;
-            BuildPlatform(platformTop);
-            Vector3 rampTop = platformTop + new Vector3(-platformHalfSize, 0, 0);
-            Vector3 rampBottom = rampTop + new Vector3(-4f, -platformHeight, 0);
-            BuildRamp(rampTop, rampBottom, 3f);
+            if (buildSniperPlatform)
+            {
+                // Sniper platform to the east, well clear of both corridor openings (0 deg
+                // and 180 deg) -- the ramp climbs toward the room's own center so it can't
+                // run past the wall on the far side.
+                Vector3 platformTop = center + new Vector3(radius - 6f, platformHeight, 0);
+                CombatPlatformPoint = platformTop;
+                BuildPlatform(platformTop);
+                Vector3 rampTop = platformTop + new Vector3(-platformHalfSize, 0, 0);
+                Vector3 rampBottom = rampTop + new Vector3(-4f, -platformHeight, 0);
+                BuildRamp(rampTop, rampBottom, 3f);
+            }
         }
 
         // Builds the ring as two walled arcs (each tangent-segmented, local X the tangent
@@ -572,6 +663,90 @@ namespace DungeonCrawler.World
                 reed.transform.localScale = new Vector3(0.07f, Random.Range(0.5f, 0.85f), 0.07f);
                 SetColor(reed, reedColor);
             }
+        }
+
+        // Snake Pit's own room fixture in place of a lava pool/ice patch/poison bog -- the
+        // real dungeon's "indestructible Snake Grate tiles which will continually spawn
+        // Pit Snakes." A flat marker (no damage of its own -- this isn't a hazard you take
+        // damage for standing on, it's a spawner) plus SnakeGrateSpawner (see
+        // World/SnakeGrateSpawner.cs) doing the actual periodic spawning.
+        private void BuildSnakeGrate(Vector3 pos)
+        {
+            var grate = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            grate.name = "SnakeGrate";
+            var col = grate.GetComponent<Collider>();
+            if (col != null) Destroy(col); // decorative marker -- the room floor beneath is still solid
+            grate.transform.SetParent(transform);
+            grate.transform.position = pos + new Vector3(0, 0.015f, 0);
+            grate.transform.localScale = new Vector3(2f, 0.015f, 2f);
+            SetColor(grate, new Color(0.14f, 0.11f, 0.08f));
+
+            grate.AddComponent<SnakeGrateSpawner>();
+        }
+
+        // A same-level branch off Vault's west wall (see Build()'s treasureAlcove roll) --
+        // structurally identical to BuildVerticalTunnel's ramp-and-chamber shape except
+        // there's no ramp or grade change, just a short corridor stub and a small room,
+        // since this is meant to read as an optional side room off the main path rather
+        // than a below-grade secret. Returns the alcove's center so GameBootstrap can place
+        // a bonus reward there.
+        private Vector3 BuildTreasureAlcove(Vector3 roomCenter)
+        {
+            const float stubLength = 5f;
+            const float alcoveHalf = 6f;
+
+            Vector3 gapOuter = roomCenter + new Vector3(-roomWidth / 2f, 0, 0);
+            Vector3 stubCenter = gapOuter + new Vector3(-stubLength / 2f, 0, 0);
+            Vector3 alcoveCenter = gapOuter + new Vector3(-stubLength - alcoveHalf, 0, 0);
+
+            var stubFloor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            stubFloor.name = "AlcoveStubFloor";
+            stubFloor.transform.SetParent(transform);
+            stubFloor.transform.position = stubCenter;
+            stubFloor.transform.localScale = new Vector3(corridorWidth / 10f, 1f, stubLength / 10f);
+            SetColor(stubFloor, corridorFloorColor);
+            BuildWall(stubCenter + new Vector3(0, wallHeight / 2f, corridorWidth / 2f), new Vector3(stubLength, wallHeight, wallThickness));
+            BuildWall(stubCenter + new Vector3(0, wallHeight / 2f, -corridorWidth / 2f), new Vector3(stubLength, wallHeight, wallThickness));
+
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            floor.name = "AlcoveFloor";
+            floor.transform.SetParent(transform);
+            floor.transform.position = alcoveCenter;
+            floor.transform.localScale = new Vector3(alcoveHalf * 2f / 10f, 1f, alcoveHalf * 2f / 10f);
+            SetColor(floor, vaultFloorColor);
+
+            BuildWall(alcoveCenter + new Vector3(0, wallHeight / 2f, alcoveHalf), new Vector3(alcoveHalf * 2f, wallHeight, wallThickness));
+            BuildWall(alcoveCenter + new Vector3(0, wallHeight / 2f, -alcoveHalf), new Vector3(alcoveHalf * 2f, wallHeight, wallThickness));
+            BuildWall(alcoveCenter + new Vector3(-alcoveHalf, wallHeight / 2f, 0), new Vector3(wallThickness, wallHeight, alcoveHalf * 2f));
+
+            float sideLength = alcoveHalf - corridorWidth / 2f;
+            if (sideLength > 0f)
+            {
+                float sideOffset = (corridorWidth / 2f + alcoveHalf) / 2f;
+                BuildWall(alcoveCenter + new Vector3(alcoveHalf, wallHeight / 2f, sideOffset), new Vector3(wallThickness, wallHeight, sideLength));
+                BuildWall(alcoveCenter + new Vector3(alcoveHalf, wallHeight / 2f, -sideOffset), new Vector3(wallThickness, wallHeight, sideLength));
+            }
+
+            if (buildCeiling)
+            {
+                var ceiling = GameObject.CreatePrimitive(PrimitiveType.Plane);
+                ceiling.name = "AlcoveCeiling";
+                var ceilCol = ceiling.GetComponent<Collider>();
+                if (ceilCol != null) Destroy(ceilCol);
+                ceiling.transform.SetParent(transform);
+                ceiling.transform.position = alcoveCenter + new Vector3(0, wallHeight, 0);
+                ceiling.transform.rotation = Quaternion.Euler(180, 0, 0);
+                ceiling.transform.localScale = new Vector3(alcoveHalf * 2f / 10f, 1f, alcoveHalf * 2f / 10f);
+                SetColor(ceiling, ceilingColor);
+            }
+
+            if (buildTorches)
+            {
+                BuildTorch(alcoveCenter + new Vector3(alcoveHalf - 1.5f, 1.1f, alcoveHalf - 1.5f));
+                BuildTorch(alcoveCenter + new Vector3(-(alcoveHalf - 1.5f), 1.1f, -(alcoveHalf - 1.5f)));
+            }
+
+            return alcoveCenter;
         }
 
         // A flat, dark ceiling reads better than leaving the room open to the void above --

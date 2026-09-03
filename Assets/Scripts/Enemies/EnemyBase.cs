@@ -151,6 +151,17 @@ namespace DungeonCrawler.Enemies
         // (LootDropper etc.) have had a chance to run.
         protected virtual void HandleDeath()
         {
+            // spriteAnimator's own GameObject IS the model root for every current
+            // AttachVisual() override (sprite billboard, AbyssFinalDemon's imported mesh,
+            // and every ProceduralMonster archetype alike all AddComponent<SpriteAnimator>
+            // directly on it) -- reusing that reference here means the death topple/sink
+            // animation works for every enemy in the game without any of their files
+            // needing to wire in a new reference themselves.
+            if (spriteAnimator != null)
+            {
+                var deathAnim = spriteAnimator.gameObject.AddComponent<ProceduralDeathAnimator>();
+                deathAnim.Play(destroyDelayAfterDeath);
+            }
             Destroy(gameObject, destroyDelayAfterDeath);
         }
 

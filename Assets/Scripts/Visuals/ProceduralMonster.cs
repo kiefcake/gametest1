@@ -287,5 +287,93 @@ namespace DungeonCrawler.Visuals
 
             return new Built { root = root, renderers = renderers.ToArray() };
         }
+
+        public struct SerpentSpec
+        {
+            public Color bodyColor;
+            public Color accentColor; // eyes / tongue / belly scale stripe
+            public float scale;
+            public float length; // in body-segment units, e.g. 5-8 for a normal trash mob, more for something boss-scale
+        }
+
+        // Legless -- a chain of shrinking capsule segments laid along local +Z in a gentle
+        // S-curve, head at the front. Snake Pit's trash mobs (PitSnake, PitDartThrower).
+        //
+        // Positions are computed up front so each segment's rotation can be derived from
+        // its neighbors (the curve's own tangent) via LookRotation instead of every segment
+        // just pointing straight down +Z like a stack of disconnected beads.
+        public static Built Serpent(Transform parent, SerpentSpec spec)
+        {
+            var renderers = new List<Renderer>();
+            var root = new GameObject("MonsterModel").transform;
+            root.SetParent(parent, false);
+            root.localPosition = Vector3.zero;
+
+            float s = spec.scale;
+            int segments = Mathf.Max(4, Mathf.RoundToInt(spec.length));
+            float segSpacing = 0.32f * s;
+
+            // index 0 = frontmost body segment (just behind the head), rising index moves
+            // toward the tail tip at -Z, per every other archetype's "faces +Z" convention.
+            var positions = new Vector3[segments];
+            for (int i = 0; i < segments; i++)
+            {
+                float offsetX = Mathf.Sin(i * 0.9f) * 0.15f * s;
+                positions[i] = new Vector3(offsetX, 0.18f * s, -i * segSpacing);
+            }
+
+            for (int i = 0; i < segments; i++)
+            {
+                float t = segments > 1 ? (float)i / (segments - 1) : 0f;
+                float radius = Mathf.Lerp(0.28f, 0.1f, t) * s;
+
+                Vector3 tangent = i < segments - 1 ? positions[i + 1] - positions[i] : positions[i] - positions[i - 1];
+                if (tangent.sqrMagnitude < 0.0001f) tangent = Vector3.back;
+                // Capsule primitives are elongated along their own local Y by default -- the
+                // extra Euler(90,0,0) reorients that long axis onto local Z first, so
+                // LookRotation's target direction is what ends up following the tangent.
+                Quaternion rot = Quaternion.LookRotation(tangent.normalized, Vector3.up) * Quaternion.Euler(90f, 0f, 0f);
+
+                renderers.Add(AddPart(root, PrimitiveType.Capsule, positions[i],
+                    new Vector3(radius, segSpacing * 0.75f, radius), rot, spec.bodyColor));
+
+                // Belly-stripe accent on a few segments near the head only -- cheap extra
+                // scale detail, skipped further back so it doesn't cost a part per segment.
+                if (i < segments - 1 && i < 5)
+                {
+                    renderers.Add(AddPart(root, PrimitiveType.Cube, positions[i] + new Vector3(0, -radius * 0.85f, 0),
+                        new Vector3(radius * 0.5f, 0.02f * s, segSpacing * 0.45f), rot, spec.accentColor));
+                }
+            }
+
+            // Head: wider than tall (a Sphere squashed non-uniformly) so it reads as a
+            // triangular wedge instead of Humanoid's round skull -- the head shape is the
+            // other big cue (besides the tongue) that separates a snake from a legless blob.
+            Vector3 headDir = (positions[0] - positions[1]).normalized;
+            Vector3 headPos = positions[0] + headDir * (0.22f * s);
+            Quaternion headRot = Quaternion.LookRotation(headDir, Vector3.up);
+            renderers.Add(AddPart(root, PrimitiveType.Sphere, headPos,
+                new Vector3(0.34f * s, 0.2f * s, 0.4f * s), headRot, spec.bodyColor));
+
+            // Glowing eyes, tinted from accentColor -- same technique as Humanoid/
+            // FloatingCaster. Positioned via headRot rather than a fixed +Z offset so they
+            // still sit correctly on the head even where the S-curve bends it sideways.
+            Vector3 eyeCenter = headPos + headRot * new Vector3(0, 0.06f * s, 0.14f * s);
+            Vector3 eyeSide = headRot * (Vector3.right * 0.14f * s);
+            renderers.Add(AddPart(root, PrimitiveType.Sphere, eyeCenter - eyeSide,
+                Vector3.one * 0.055f * s, Quaternion.identity, spec.accentColor, emissive: true));
+            renderers.Add(AddPart(root, PrimitiveType.Sphere, eyeCenter + eyeSide,
+                Vector3.one * 0.055f * s, Quaternion.identity, spec.accentColor, emissive: true));
+
+            // Forked tongue flick, jutting straight out from the snout tip -- the single
+            // most snake-identifying detail on the whole model.
+            Vector3 tongueBase = headPos + headRot * new Vector3(0, -0.02f * s, 0.22f * s);
+            renderers.Add(AddPart(root, PrimitiveType.Capsule, tongueBase,
+                new Vector3(0.015f * s, 0.12f * s, 0.015f * s), headRot * Quaternion.Euler(90f, 10f, 0f), spec.accentColor));
+            renderers.Add(AddPart(root, PrimitiveType.Capsule, tongueBase,
+                new Vector3(0.015f * s, 0.12f * s, 0.015f * s), headRot * Quaternion.Euler(90f, -10f, 0f), spec.accentColor));
+
+            return new Built { root = root, renderers = renderers.ToArray() };
+        }
     }
 }

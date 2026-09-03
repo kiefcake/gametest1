@@ -42,7 +42,7 @@ namespace DungeonCrawler
         // leaving via any camp portal destroyed the whole OpenWorld GameObject including
         // the OTHER two already-earned portals, forcing a full re-clear of biomes the
         // player had already finished.
-        private bool wastesCleared, frostlandsCleared, marshlandsCleared;
+        private bool wastesCleared, frostlandsCleared, marshlandsCleared, snakePitZoneCleared;
 
         private void Start()
         {
@@ -57,7 +57,7 @@ namespace DungeonCrawler
         private void BeginRun(TestClass chosenClass)
         {
             classToTest = chosenClass;
-            wastesCleared = frostlandsCleared = marshlandsCleared = false;
+            wastesCleared = frostlandsCleared = marshlandsCleared = snakePitZoneCleared = false;
 
             var hubGO = new GameObject("Hub");
             hub = hubGO.AddComponent<HubLayout>();
@@ -311,9 +311,14 @@ namespace DungeonCrawler
             PopulateWastes(world.Wastes);
             PopulateFrostlands(world.Frostlands);
             PopulateMarshlands(world.Marshlands);
+            PopulateSnakePitZone(world.SnakePit);
 
             // RotMG's Oryx's Sanctuary inspiration -- three cleared camps (runes) light the
             // shared monument and unlock a bonus pull on top of each camp's own dungeon-unlock payoff.
+            // Kept at the original three rather than requiring the Snake Pit too -- the
+            // monument/Hardcore-unlock design was already locked in around "three bosses"
+            // before this dungeon existed, and re-deriving that threshold isn't part of
+            // recreating Stheno faithfully.
             if (wastesCleared && frostlandsCleared && marshlandsCleared)
             {
                 SpawnMonumentReward(world.MonumentPoint);
@@ -377,6 +382,29 @@ namespace DungeonCrawler
 
             SpawnBanditMiniboss<BogLurker>(zone.minibossPoint, 400f, 1.8f,
                 () => { marshlandsCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterSunkenRuins); });
+        }
+
+        // Snake Pit zone trash/guards alternate Pit Snakes and Dart Throwers -- the camp's
+        // own chief is a scaled-up Pit Snake (SpawnBanditMiniboss reuses the same generic
+        // "bandit chief" shape every other zone's camp boss uses); killing it opens a
+        // portal to the actual Snake Pit dungeon.
+        private void PopulateSnakePitZone(OpenWorldLayout.BiomeZone zone)
+        {
+            if (snakePitZoneCleared)
+            {
+                BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterSnakePit);
+                return;
+            }
+
+            for (int i = 0; i < zone.roamPoints.Length; i++)
+            {
+                if (i % 2 == 0) SpawnPitSnake(zone.roamPoints[i]);
+                else SpawnPitDartThrower(zone.roamPoints[i]);
+            }
+            foreach (var p in zone.guardPoints) SpawnPitSnake(p);
+
+            SpawnBanditMiniboss<PitSnake>(zone.minibossPoint, 400f, 1.8f,
+                () => { snakePitZoneCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterSnakePit); });
         }
 
         // A single generic "bandit chief" builder shared by all three biomes -- same
@@ -577,6 +605,49 @@ namespace DungeonCrawler
             BuildReturnGate(layout.EntryPoint);
         }
 
+        // Same shape as the other three Enter*Dungeon methods -- same shared DungeonLayout
+        // generator (World.DungeonTheme.SnakePit), Pit Snakes/Dart Throwers instead of
+        // whichever theme's usual trash, Stheno the Snake Queen instead of the usual boss.
+        // Also handles DungeonLayout.TreasureAlcovePoint, which only this call site reads
+        // (the other three dungeons' Vault never rolls a treasure alcove branch in a way
+        // that matters to them -- they just don't check the property at all).
+        private void EnterSnakePit()
+        {
+            Debug.Log("[Bootstrap] EnterSnakePit() called");
+            var layout = PrepareDungeonRoot("SnakePit", DungeonTheme.SnakePit, new Color(0.16f, 0.11f, 0.06f));
+            {
+                SpawnPitSnake(layout.CombatPoint + new Vector3(3, 0, 2));
+                SpawnPitSnake(layout.CombatPoint + new Vector3(-3, 0, 2));
+                SpawnPitDartThrower(layout.CombatPoint + new Vector3(5f, 0, -3f));
+                SpawnPitDartThrower(layout.CombatPoint + new Vector3(-5f, 0, -3f));
+                SpawnPitDartThrower(layout.CombatPlatformPoint);
+
+                SpawnPitSnake(layout.Combat2Point + new Vector3(3.5f, 0, 2f));
+                SpawnPitSnake(layout.Combat2Point + new Vector3(-3.5f, 0, -1f));
+                SpawnPitDartThrower(layout.Combat2Point + new Vector3(-2f, 0, -6));
+                SpawnPitDartThrower(layout.Combat2Point + new Vector3(2f, 0, -6));
+                SpawnPitSnake(layout.Combat2Point + new Vector3(6f, 0, 0));
+                SpawnPitDartThrower(layout.Combat2PlatformPoint);
+
+                SpawnPitSnake(layout.TunnelPoint + new Vector3(-1.5f, 0, 1.5f));
+                SpawnPitSnake(layout.TunnelPoint + new Vector3(1.5f, 0, -1.5f));
+                SpawnPitDartThrower(layout.TunnelPoint + new Vector3(0, 0, -2f));
+                SpawnTunnelLoot(layout.TunnelPoint + new Vector3(0, 0, 3f));
+
+                SpawnVaultLoot(layout.VaultPoint);
+                // Only present on the roughly 24% of generations that roll both a
+                // rectangular Vault AND the treasure-alcove chance (see DungeonLayout.Build)
+                // -- a bonus on top of the guaranteed Vault reward above, not a replacement.
+                if (layout.TreasureAlcovePoint.HasValue) SpawnTunnelLoot(layout.TreasureAlcovePoint.Value);
+
+                SpawnSthenoBoss(layout.BossPoint);
+
+                BuildBossExitGate(layout.BossPoint + new Vector3(-7f, 0, 7f), "the Snake Pit");
+            }
+
+            BuildReturnGate(layout.EntryPoint);
+        }
+
         // A second, victory-flavored exit (green glowing portal, no pillars) right in the
         // boss's own room -- BuildReturnGate stays invisible-trigger-only since it's meant
         // to just always be sitting at the entrance, but this one is the actual payoff for
@@ -763,6 +834,36 @@ namespace DungeonCrawler
             loot.maxGold = 9;
         }
 
+        private void SpawnPitSnake(Vector3 pos)
+        {
+            var go = new GameObject("PitSnake");
+            go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
+            go.AddComponent<Health>();
+            go.AddComponent<StatusEffectController>();
+            go.AddComponent<PitSnake>();
+            go.AddComponent<AggroController>();
+            var loot = go.AddComponent<LootDropper>();
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
+            loot.minGold = 2;
+            loot.maxGold = 5;
+        }
+
+        private void SpawnPitDartThrower(Vector3 pos)
+        {
+            var go = new GameObject("PitDartThrower");
+            go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
+            go.AddComponent<Health>();
+            go.AddComponent<StatusEffectController>();
+            go.AddComponent<PitDartThrower>();
+            go.AddComponent<AggroController>();
+            var loot = go.AddComponent<LootDropper>();
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
+            loot.minGold = 4;
+            loot.maxGold = 9;
+        }
+
         private void SpawnFrostLichBoss(Vector3 pos)
         {
             var go = new GameObject("FrostLich");
@@ -820,6 +921,24 @@ namespace DungeonCrawler
             loot.maxGold = 140;
             loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
             h.OnDeath += PlayerProgress.MarkAbyssBossDefeated;
+        }
+
+        // SthenoSnakeQueen sets her own maxHP in Awake() (matching the other three bosses'
+        // own pattern) rather than having it overridden here.
+        private void SpawnSthenoBoss(Vector3 pos)
+        {
+            var go = new GameObject("SthenoSnakeQueen");
+            go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
+            go.AddComponent<Health>();
+            go.AddComponent<StatusEffectController>();
+            go.AddComponent<SthenoSnakeQueen>();
+            go.AddComponent<AggroController>();
+            var loot = go.AddComponent<LootDropper>();
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
+            loot.minGold = 90;
+            loot.maxGold = 140;
+            loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
         }
 
         // Guaranteed loot (no kill required) in the vault room, pulled straight from the

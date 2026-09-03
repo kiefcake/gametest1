@@ -11,6 +11,13 @@ namespace DungeonCrawler.Visuals
     {
         public float bobHeight = 0.08f;
         public float bobSpeed = 4f;
+        // How far the model steps forward into an attack before returning, in local units
+        // (fraction of its own body -- this sits on the model root, whose parent's scale
+        // already accounts for the enemy's own size, so a flat offset would look wrong on
+        // a boss-scale model; see PulseAttack). 0 disables the lunge entirely -- some
+        // callers (a caster mid-cast-telegraph, say) may want the scale-punch without the
+        // model visibly stepping.
+        public float lungeDistance = 0.18f;
 
         private Vector3 baseLocalPos;
         private Vector3 baseScale;
@@ -28,18 +35,23 @@ namespace DungeonCrawler.Visuals
         private void Update()
         {
             float bob = Mathf.Sin(Time.time * bobSpeed + bobPhase) * bobHeight;
-            transform.localPosition = baseLocalPos + new Vector3(0, bob, 0);
 
             if (pulseTimer > 0f)
             {
                 pulseTimer -= Time.deltaTime;
                 float t = Mathf.Clamp01(pulseTimer / PulseDuration);
-                float punch = Mathf.Sin(t * Mathf.PI) * 0.35f; // grows then settles back over the pulse
-                transform.localScale = baseScale * (1f + punch);
+                float punch = Mathf.Sin(t * Mathf.PI); // rises then settles back to 0 over the pulse
+                transform.localScale = baseScale * (1f + punch * 0.35f);
+                // Local +Z is always the enemy's own forward -- EnemyBase.LateUpdate keeps
+                // every enemy turned to face its target, so a step along the model's own
+                // local Z reads as "lunging at what it's attacking" regardless of which way
+                // the enemy happens to be facing at the time.
+                transform.localPosition = baseLocalPos + new Vector3(0, bob, punch * lungeDistance);
             }
             else
             {
                 transform.localScale = baseScale;
+                transform.localPosition = baseLocalPos + new Vector3(0, bob, 0);
             }
         }
 

@@ -32,11 +32,15 @@ namespace DungeonCrawler.World
             public Vector3[] roamPoints;     // enemies scattered across the open biome
         }
 
-        private enum HazardKind { Lava, Ice, Bog }
+        private enum HazardKind { Lava, Ice, Bog, Venom }
 
-        // Each zone is 60 (X) x 70 (Z) -- three side by side spans the whole overworld
-        // roughly X: -90..90, Z: 0..70, well clear of the hub's own footprint
-        // (x: -30..30, z: -60..-5).
+        // Each zone is 60 (X) x 70 (Z) -- four side by side spans the whole overworld
+        // roughly X: -90..150, Z: 0..70, well clear of the hub's own footprint
+        // (x: -30..30, z: -60..-5). The Snake Pit zone was added after the original three
+        // (Wastes/Frostlands/Marshlands, at X -60/0/60) -- rather than re-center all four
+        // and risk shifting camp/hazard/roam coordinates that were already tuned for the
+        // original three, it just continues the same spacing one zone further east at
+        // X=120.
         private const float ZoneHalfWidth = 30f;
         private const float ZoneHalfDepth = 35f;
         private const float ZoneCenterZ = 35f;
@@ -81,6 +85,7 @@ namespace DungeonCrawler.World
         public BiomeZone Wastes { get; private set; }
         public BiomeZone Frostlands { get; private set; }
         public BiomeZone Marshlands { get; private set; }
+        public BiomeZone SnakePit { get; private set; }
 
         private void Awake()
         {
@@ -92,6 +97,7 @@ namespace DungeonCrawler.World
             Wastes = BuildBiome("The Wastes", -60f, new Color(0.32f, 0.16f, 0.08f), HazardKind.Lava);
             Frostlands = BuildBiome("The Frostlands", 0f, new Color(0.72f, 0.82f, 0.9f), HazardKind.Ice);
             Marshlands = BuildBiome("The Marshlands", 60f, new Color(0.22f, 0.26f, 0.16f), HazardKind.Bog);
+            SnakePit = BuildBiome("The Snake Pit", 120f, new Color(0.36f, 0.28f, 0.14f), HazardKind.Venom);
 
             BuildMonument();
             BuildPerimeterWalls();
@@ -212,6 +218,14 @@ namespace DungeonCrawler.World
                     effectMag = 1f;
                     effectDur = 1.5f;
                     break;
+                case HazardKind.Venom:
+                    flat = new Color(0.55f, 0.75f, 0.1f);
+                    glowA = new Color(0.4f, 0.6f, 0.05f);
+                    glowB = new Color(0.75f, 0.95f, 0.2f);
+                    effect = StatusEffectType.Poison;
+                    effectMag = 4f;
+                    effectDur = 4f;
+                    break;
                 default:
                     flat = new Color(0.9f, 0.35f, 0.05f);
                     glowA = new Color(0.7f, 0.15f, 0.02f);
@@ -259,6 +273,9 @@ namespace DungeonCrawler.World
                     break;
                 case HazardKind.Bog:
                     BuildReedCluster(clusterPos);
+                    break;
+                case HazardKind.Venom:
+                    BuildReedCluster(clusterPos); // reuses the same reed-cluster read -- fits a venomous thicket just as well as a bog
                     break;
                 default:
                     BuildScorchedRockCluster(clusterPos);
@@ -438,7 +455,7 @@ namespace DungeonCrawler.World
         // void, not be airtight.
         private void BuildPerimeterWalls()
         {
-            const float minX = -90f, maxX = 90f, minZ = 0f, maxZ = 70f;
+            const float minX = -90f, maxX = 150f, minZ = 0f, maxZ = 70f;
             float width = maxX - minX;
             float depth = maxZ - minZ;
             float centerX = (minX + maxX) / 2f;

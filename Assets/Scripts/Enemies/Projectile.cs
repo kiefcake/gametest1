@@ -1,5 +1,6 @@
 using UnityEngine;
 using DungeonCrawler.Classes;
+using DungeonCrawler.Core;
 using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.Enemies
@@ -18,8 +19,15 @@ namespace DungeonCrawler.Enemies
         private float lifetime;
         private float age;
         private bool targetsPlayer;
+        private StatusEffectType appliedEffect;
+        private float effectDuration;
+        private float effectMagnitude;
 
-        public static Projectile Spawn(Vector3 pos, Vector3 dir, float speed, float damage, Color color, float lifetime = 4f, bool targetsPlayer = true)
+        // appliedEffect defaults to None so every existing call site (a plain damage bolt)
+        // is unaffected -- Stheno's blinding White Bullet is the first caller to pass one.
+        public static Projectile Spawn(Vector3 pos, Vector3 dir, float speed, float damage, Color color,
+            float lifetime = 4f, bool targetsPlayer = true,
+            StatusEffectType appliedEffect = StatusEffectType.None, float effectDuration = 0f, float effectMagnitude = 0f)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             go.name = "Projectile";
@@ -52,6 +60,9 @@ namespace DungeonCrawler.Enemies
             proj.damage = damage;
             proj.lifetime = lifetime;
             proj.targetsPlayer = targetsPlayer;
+            proj.appliedEffect = appliedEffect;
+            proj.effectDuration = effectDuration;
+            proj.effectMagnitude = effectMagnitude;
             return proj;
         }
 
@@ -69,6 +80,8 @@ namespace DungeonCrawler.Enemies
                 var player = other.GetComponentInParent<PlayerCharacter>();
                 if (player == null || player.health == null) return;
                 player.health.TakeDamage(damage, ignoreDef: false);
+                if (appliedEffect != StatusEffectType.None)
+                    player.GetComponent<StatusEffectController>()?.ApplyEffect(appliedEffect, effectDuration, effectMagnitude);
             }
             else
             {
@@ -79,6 +92,8 @@ namespace DungeonCrawler.Enemies
                 // aggro onto the player even from outside normal aggro range -- see
                 // EnemyBase.OnDamagedAggro.
                 health.TakeDamage(damage, ignoreDef: false);
+                if (appliedEffect != StatusEffectType.None)
+                    enemy.GetComponent<StatusEffectController>()?.ApplyEffect(appliedEffect, effectDuration, effectMagnitude);
             }
 
             ImpactBurst.Spawn(transform.position, new Color(0.8f, 0.2f, 0.9f));
