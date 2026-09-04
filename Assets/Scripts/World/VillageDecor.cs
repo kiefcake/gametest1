@@ -22,7 +22,7 @@ namespace DungeonCrawler.World
             var cap = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             cap.name = "HillCap";
             var capCol = cap.GetComponent<Collider>();
-            if (capCol != null) Destroy(capCol); // the cylinder base below already blocks/supports movement
+            if (capCol != null) Object.Destroy(capCol); // the cylinder base below already blocks/supports movement
             cap.transform.SetParent(parent);
             cap.transform.position = pos + new Vector3(0, height, 0);
             cap.transform.localScale = new Vector3(radius * 1.9f, height * 0.8f, radius * 1.9f);
@@ -36,7 +36,7 @@ namespace DungeonCrawler.World
                 var rock = GameObject.CreatePrimitive(cube ? PrimitiveType.Cube : PrimitiveType.Sphere);
                 rock.name = "HillBaseRock";
                 var col = rock.GetComponent<Collider>();
-                if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
+                if (col != null) Object.Destroy(col); // decorative clutter -- shouldn't snag movement
                 rock.transform.SetParent(parent);
                 Vector2 ring = Random.insideUnitCircle.normalized * (radius + Random.Range(0f, 0.8f));
                 rock.transform.position = pos + new Vector3(ring.x, 0.15f, ring.y);
@@ -241,7 +241,7 @@ namespace DungeonCrawler.World
         private static void DestroyCollider(GameObject go)
         {
             var col = go.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            if (col != null) Object.Destroy(col);
         }
 
         private static void SetColor(GameObject go, Color c)
