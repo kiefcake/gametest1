@@ -4,35 +4,45 @@ using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.World
 {
-    // Safe starting zone, built the same way DungeonLayout builds the abyss (runtime
-    // primitives, flat colors -- see that file's header for why). Sits well south of the
-    // dungeon's own world-space footprint (DungeonLayout positions everything from world
-    // origin northward, starting at its own EntryPoint = Vector3.zero) so the two never
-    // overlap -- no scene switching needed, just two disjoint patches of the same world.
+    // Medieval carnival castle village -- rebuilt from the original plain walled-square
+    // hub into a real centerpiece layout: a walled village green with a proper keep (not
+    // just a wall ring) dominating the north end, a market row and well in the plaza south
+    // of it, a carnival wing (games, tents, bunting) through the west archway, and a
+    // terraced garden wing (hills, rocks, statues) through the east archway for
+    // verticality. The keep's own north face doubles as the "grand portal" -- what used to
+    // be a plain two-pillar dungeon gate is now the castle's rear gate, framed by its own
+    // towers and flanking statues, so leaving on a run reads as walking out through the
+    // keep instead of through an unrelated door in a wall.
     //
-    // Laid out as a walled castle courtyard rather than one open circle: a central market
-    // square (fountain, vendor row, training yard, the dungeon gate) framed by a
-    // crenellated stone wall with corner towers, plus two side rooms reached through
-    // archway gaps in that wall -- an enclosed tavern housing a gambling table to the west,
-    // and an open-air fairground with a claw machine to the east. GameBootstrap spawns the
-    // player here first; walking up to the gate and pressing E is what actually builds the
-    // dungeon and teleports the player into it (see GameBootstrap.EnterDungeon). Builds in
-    // Awake() so GameBootstrap can read EntryPoint/GateInteractable/etc the same frame it
-    // calls AddComponent<HubLayout>().
+    // Every existing GameBootstrap contract is preserved exactly: EntryPoint,
+    // GateInteractable (now on the grand portal), GambleInteractable (now inside the
+    // keep's own courtyard), ClawMachine (now in the carnival wing), and the three
+    // VendorNPC-tagged stalls GameBootstrap.WireVendors finds by name -- none of those
+    // call sites needed to change.
+    //
+    // Placeholder geometry throughout, same as it always was (see DungeonLayout's header
+    // for why): primitives, flat colors, built purely in code. Builds in Awake() so
+    // GameBootstrap can read EntryPoint/GateInteractable/etc the same frame it calls
+    // AddComponent<HubLayout>().
     public class HubLayout : MonoBehaviour
     {
         private static readonly Vector3 Center = new Vector3(0, 0, -40f);
 
-        private const float SquareHalf = 20f;      // market square half-extent (x and z)
+        private const float SquareHalf = 22f;       // village green half-extent (x and z)
         private const float WallHeight = 3.4f;
         private const float WallThickness = 0.6f;
-        private const float GateGapHalf = 3.5f;     // north-wall opening for the dungeon gate
-        private const float WingGapHalf = 5f;       // east/west-wall openings into the side rooms
-        private const float WingHalfWidth = 10f;    // tavern/fairground room half-width (x)
-        private const float WingHalfDepth = 8f;     // tavern/fairground room half-depth (z)
+        private const float WingGapHalf = 5f;        // east/west archway openings into the wings
+        private const float WingHalfWidth = 11f;     // carnival/terrace wing half-width (x)
+        private const float WingHalfDepth = 9f;      // carnival/terrace wing half-depth (z)
+
+        private const float CastleHalfWidth = 7f;
+        private const float CastleHalfDepth = 6f;
+        private const float CastleCenterZ = 11f;     // relative to Center -- keep sits toward the north wall
 
         private static readonly Color WallStoneColor = new Color(0.44f, 0.41f, 0.37f);
+        private static readonly Color KeepStoneColor = new Color(0.5f, 0.47f, 0.43f); // a shade lighter -- the keep should read as the "important" stone, not just more wall
         private static readonly Color MerlonColor = new Color(0.38f, 0.35f, 0.32f);
+        private static readonly Color StatueStoneColor = new Color(0.56f, 0.55f, 0.53f);
 
         public Vector3 EntryPoint { get; private set; }
         public Interactable GateInteractable { get; private set; }
@@ -44,18 +54,18 @@ namespace DungeonCrawler.World
             EntryPoint = Center + new Vector3(0, 0, -14f);
 
             BuildSquareFloor();
-            BuildCastleWalls();
+            BuildVillageWalls();
             BuildWell(Center);
-            BuildVendorStall(Center + new Vector3(-11f, 0, 9f), "Alchemist",
+            BuildVendorStall(Center + new Vector3(-12f, 0, -7f), "Alchemist",
                 "Potions for every stat -- a small boost per bottle, five to a cap.", new Color(0.4f, 0.7f, 0.5f));
-            BuildVendorStall(Center + new Vector3(11f, 0, 9f), "Blacksmith",
+            BuildVendorStall(Center + new Vector3(12f, 0, -7f), "Blacksmith",
                 "Weapons and armor pulled from the vault. Gear up before you head down.", new Color(0.6f, 0.5f, 0.4f));
-            BuildVendorStall(Center + new Vector3(0f, 0, 9f), "Curiosities",
+            BuildVendorStall(Center + new Vector3(0f, 0, -9f), "Curiosities",
                 "Rare finds, priced accordingly. Not for the faint of coinpurse.", new Color(0.55f, 0.35f, 0.7f));
-            BuildTrainingArea(Center + new Vector3(-13f, 0, -11f));
-            BuildDungeonGate(Center + new Vector3(0, 0, 18f));
-            BuildTavernWing();
-            BuildFairgroundWing();
+            BuildTrainingArea(Center + new Vector3(-17f, 0, -15f));
+            BuildCastle(Center + new Vector3(0, 0, CastleCenterZ));
+            BuildCarnivalWing();
+            BuildTerraceWing();
         }
 
         private void BuildSquareFloor()
@@ -68,22 +78,19 @@ namespace DungeonCrawler.World
             SetColor(floor, new Color(0.32f, 0.28f, 0.22f));
         }
 
-        // A proper castle wall -- crenellated stone runs with a corner tower at each
-        // corner, instead of the plain ring of posts this used to be. Archway gaps lead
-        // into the tavern (west) and fairground (east); a narrower gap up north frames the
-        // dungeon gate.
-        private void BuildCastleWalls()
+        // North and south stay solid -- south because the player spawns just inside it,
+        // north because the keep built inside the green (see BuildCastle) carries its own
+        // rear gate instead of the wall needing a second one. Archway gaps only lead east
+        // (terrace wing) and west (carnival wing).
+        private void BuildVillageWalls()
         {
             float h = SquareHalf;
 
-            BuildWallRunX(-h, -h, h); // south -- solid; the player already spawns inside it
-
-            BuildWallRunX(h, -h, -GateGapHalf);
-            BuildWallRunX(h, GateGapHalf, h);
+            BuildWallRunX(-h, -h, h);
+            BuildWallRunX(h, -h, h);
 
             BuildWallRunZ(-h, -h, -WingGapHalf);
             BuildWallRunZ(-h, WingGapHalf, h);
-
             BuildWallRunZ(h, -h, -WingGapHalf);
             BuildWallRunZ(h, WingGapHalf, h);
 
@@ -98,9 +105,6 @@ namespace DungeonCrawler.World
             BuildArchPillar(new Vector3(h, 0, WingGapHalf));
         }
 
-        // A wall run parallel to X at world-relative z, from xFrom to xTo (both relative to
-        // Center). Skipped entirely if the range collapses to nothing -- lets callers pass
-        // a gap's two flanking ranges without special-casing a zero-length side.
         private void BuildWallRunX(float z, float xFrom, float xTo)
         {
             float length = xTo - xFrom;
@@ -128,14 +132,14 @@ namespace DungeonCrawler.World
             wall.transform.localScale = scale;
             SetColor(wall, WallStoneColor);
 
-            AddWallTrim(worldCenter, scale);
+            AddWallTrim(worldCenter, scale, WallStoneColor);
         }
 
-        private void AddWallTrim(Vector3 worldCenter, Vector3 scale)
+        private void AddWallTrim(Vector3 worldCenter, Vector3 scale, Color baseColor)
         {
             float bandHeight = Mathf.Min(0.3f, scale.y * 0.15f);
-            Color baseboard = WallStoneColor * 0.55f; baseboard.a = 1f;
-            Color cap = Color.Lerp(WallStoneColor, Color.white, 0.25f);
+            Color baseboard = baseColor * 0.55f; baseboard.a = 1f;
+            Color cap = Color.Lerp(baseColor, Color.white, 0.25f);
             Vector3 bandScale = new Vector3(scale.x + 0.04f, bandHeight, scale.z + 0.04f);
 
             BuildTrimBand(worldCenter + new Vector3(0, -scale.y / 2f + bandHeight / 2f, 0), bandScale, baseboard);
@@ -155,8 +159,6 @@ namespace DungeonCrawler.World
             return band;
         }
 
-        // Merlons narrower than their spacing slot -- the gaps between them fall out
-        // naturally rather than needing a separate "skip every other" pass.
         private void BuildCrenellations(Vector3 basePos, float length, bool alongX)
         {
             const float spacing = 2.2f;
@@ -175,7 +177,7 @@ namespace DungeonCrawler.World
                 var merlon = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 merlon.name = "Merlon";
                 var col = merlon.GetComponent<Collider>();
-                if (col != null) Destroy(col); // decorative -- the wall body below already blocks movement
+                if (col != null) Destroy(col);
                 merlon.transform.SetParent(transform);
                 merlon.transform.position = pos;
                 merlon.transform.localScale = alongX
@@ -198,8 +200,6 @@ namespace DungeonCrawler.World
             body.transform.localScale = new Vector3(radius * 2f, towerHeight / 2f, radius * 2f);
             SetColor(body, WallStoneColor);
 
-            // A squashed sphere instead of a true cone (Unity ships no cone primitive) --
-            // reads as a tower roof at a glance, which is all this needs to do.
             var roof = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             roof.name = "TowerRoof";
             var roofCol = roof.GetComponent<Collider>();
@@ -238,7 +238,7 @@ namespace DungeonCrawler.World
             light.color = lightColor ?? new Color(1f, 0.78f, 0.45f);
             light.range = 10f;
             light.intensity = 1.3f;
-            holder.AddComponent<TorchFlicker>().flickerAmount = 0.2f; // gentler than dungeon torches -- hub should read as calm
+            holder.AddComponent<TorchFlicker>().flickerAmount = 0.2f;
         }
 
         private void BuildWell(Vector3 center)
@@ -259,15 +259,6 @@ namespace DungeonCrawler.World
             water.transform.localScale = new Vector3(2.8f, 0.05f, 2.8f);
             SetColor(water, new Color(0.25f, 0.55f, 0.75f));
 
-            // A solid short cylinder standing on the basin's edge -- reads as a knee-high
-            // stone rim without needing an actual hollow-ring mesh. Kept low (top just
-            // above the water's own surface at y=0.6) rather than the taller block a
-            // "rim" first suggests: since a Cylinder primitive has a solid top cap, not an
-            // open ring, anything taller here would sit as an opaque lid directly over the
-            // water and hide it completely from a standing player's eye height, defeating
-            // the still-water read this well is built around. Keeps its collider (the
-            // basin/water below don't have one) so the player can bump against the well
-            // itself, same as BuildCornerTower's body vs. its collider-less roof.
             var rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             rim.name = "WellRim";
             rim.transform.SetParent(transform);
@@ -275,9 +266,6 @@ namespace DungeonCrawler.World
             rim.transform.localScale = new Vector3(3.4f, 0.25f, 3.4f);
             SetColor(rim, WallStoneColor);
 
-            // Two posts angled inward at the top (same paired-tilt trick BuildCanopy uses
-            // for its peaked awning) so the beam they carry reads as resting on an A-frame
-            // rather than floating between two straight sticks.
             BuildWellPost(center + new Vector3(-1.6f, 0, 0), 10f);
             BuildWellPost(center + new Vector3(1.6f, 0, 0), -10f);
 
@@ -290,8 +278,6 @@ namespace DungeonCrawler.World
             beam.transform.localScale = new Vector3(3.4f, 0.2f, 0.2f);
             SetColor(beam, new Color(0.25f, 0.18f, 0.1f));
 
-            // Rope + bucket hanging toward the water -- the one detail that makes this
-            // unmistakably a well rather than a fountain.
             var rope = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             rope.name = "WellRope";
             var ropeCol = rope.GetComponent<Collider>();
@@ -324,19 +310,256 @@ namespace DungeonCrawler.World
             SetColor(post, new Color(0.25f, 0.18f, 0.1f));
         }
 
-        // Builds the stall's geometry and an empty-stock VendorNPC + Interactable.
-        // GameBootstrap fills in real stock once it can resolve ItemData references (see
-        // GameBootstrap.WireVendors) -- HubLayout only owns what it can build with zero
-        // outside data, matching how DungeonLayout owns geometry while GameBootstrap owns
-        // what actually spawns inside it.
+        // --- The castle: a real keep in the middle of the green, not just more wall. Four
+        // corner towers + a taller central keep tower, a gatehouse arch facing south (the
+        // way the player actually walks in from the market), solid east/west/north walls
+        // except where BuildGrandPortal below cuts the north face open -- the keep's own
+        // rear gate doubles as GateInteractable, so leaving on a run reads as walking out
+        // through the castle instead of some unrelated door in the outer wall.
+        private void BuildCastle(Vector3 keepCenter)
+        {
+            float w = CastleHalfWidth;
+            float d = CastleHalfDepth;
+            const float gateHalf = 2.6f;
+
+            // South (entrance) face -- gapped for the gatehouse.
+            BuildKeepWallX(keepCenter, -d, -w, -gateHalf);
+            BuildKeepWallX(keepCenter, -d, gateHalf, w);
+            // East/west faces -- solid.
+            BuildKeepWallZ(keepCenter, -w, -d, d);
+            BuildKeepWallZ(keepCenter, w, -d, d);
+            // North face is intentionally NOT built here -- BuildGrandPortal below is the
+            // keep's rear wall.
+
+            BuildKeepTower(keepCenter + new Vector3(-w, 0, -d), 2f, false);
+            BuildKeepTower(keepCenter + new Vector3(w, 0, -d), 2f, false);
+            BuildKeepTower(keepCenter + new Vector3(-w, 0, d), 2.1f, true);
+            BuildKeepTower(keepCenter + new Vector3(w, 0, d), 2.1f, true);
+            BuildKeepTower(keepCenter, 3.2f, true); // the central keep -- tallest thing in the village
+
+            BuildGatehouseArch(keepCenter + new Vector3(0, 0, -d), gateHalf);
+            VillageDecor.BuildStatue(transform, keepCenter + new Vector3(-gateHalf - 1.4f, 0, -d - 0.3f), 20f, StatueStoneColor);
+            VillageDecor.BuildStatue(transform, keepCenter + new Vector3(gateHalf + 1.4f, 0, -d - 0.3f), -20f, StatueStoneColor);
+
+            BuildCourtyardInterior(keepCenter);
+            BuildGrandPortal(keepCenter + new Vector3(0, 0, d));
+        }
+
+        private void BuildKeepWallX(Vector3 keepCenter, float z, float xFrom, float xTo)
+        {
+            float length = xTo - xFrom;
+            if (length <= 0.01f) return;
+            Vector3 basePos = keepCenter + new Vector3((xFrom + xTo) / 2f, 0, z);
+            BuildKeepWallCube(basePos + new Vector3(0, WallHeight / 2f, 0), new Vector3(length, WallHeight, WallThickness));
+            BuildCrenellations(basePos, length, alongX: true);
+        }
+
+        private void BuildKeepWallZ(Vector3 keepCenter, float x, float zFrom, float zTo)
+        {
+            float length = zTo - zFrom;
+            if (length <= 0.01f) return;
+            Vector3 basePos = keepCenter + new Vector3(x, 0, (zFrom + zTo) / 2f);
+            BuildKeepWallCube(basePos + new Vector3(0, WallHeight / 2f, 0), new Vector3(WallThickness, WallHeight, length));
+            BuildCrenellations(basePos, length, alongX: false);
+        }
+
+        private void BuildKeepWallCube(Vector3 worldCenter, Vector3 scale)
+        {
+            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wall.name = "KeepWall";
+            wall.transform.SetParent(transform);
+            wall.transform.position = worldCenter;
+            wall.transform.localScale = scale;
+            SetColor(wall, KeepStoneColor);
+            AddWallTrim(worldCenter, scale, KeepStoneColor);
+        }
+
+        // tall=true gives the central keep and rear towers extra height plus a banner --
+        // used for the towers that should read as "the important ones" versus the
+        // shorter, plainer front-facing towers flanking the gatehouse.
+        private void BuildKeepTower(Vector3 pos, float radius, bool tall)
+        {
+            float towerHeight = WallHeight + (tall ? 6f : 3.5f);
+
+            var body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            body.name = "KeepTower";
+            body.transform.SetParent(transform);
+            body.transform.position = pos + new Vector3(0, towerHeight / 2f, 0);
+            body.transform.localScale = new Vector3(radius * 2f, towerHeight / 2f, radius * 2f);
+            SetColor(body, KeepStoneColor);
+
+            var roof = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            roof.name = "KeepTowerRoof";
+            var roofCol = roof.GetComponent<Collider>();
+            if (roofCol != null) Destroy(roofCol);
+            roof.transform.SetParent(transform);
+            roof.transform.position = pos + new Vector3(0, towerHeight + radius * 0.4f, 0);
+            roof.transform.localScale = new Vector3(radius * 2.3f, radius * 1.4f, radius * 2.3f);
+            SetColor(roof, new Color(0.32f, 0.14f, 0.16f));
+
+            BuildLantern(pos + new Vector3(0, towerHeight + 1.2f, 0));
+
+            if (tall)
+            {
+                VillageDecor.BuildBanner(transform, pos + new Vector3(radius + 0.05f, towerHeight - 1.5f, 0),
+                    new Color(0.7f, 0.1f, 0.15f), 90f);
+            }
+        }
+
+        private void BuildGatehouseArch(Vector3 pos, float gapHalf)
+        {
+            var lintel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            lintel.name = "GatehouseLintel";
+            lintel.transform.SetParent(transform);
+            lintel.transform.position = pos + new Vector3(0, WallHeight + 0.5f, 0);
+            lintel.transform.localScale = new Vector3(gapHalf * 2f + 1.4f, 0.6f, 0.7f);
+            SetColor(lintel, KeepStoneColor);
+        }
+
+        // The gambling table used to live in its own walled tavern wing -- now it's what
+        // the castle itself "houses," per the brief, inside the keep's own courtyard
+        // between the south gatehouse and the north portal. Same GambleInteractable wiring
+        // as before; only the setting around it changed.
+        private void BuildCourtyardInterior(Vector3 keepCenter)
+        {
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            floor.name = "CourtyardFloor";
+            floor.transform.SetParent(transform);
+            floor.transform.position = keepCenter;
+            floor.transform.localScale = new Vector3(CastleHalfWidth * 2f / 10f, 1f, CastleHalfDepth * 2f / 10f);
+            SetColor(floor, new Color(0.34f, 0.31f, 0.26f));
+
+            BuildLantern(keepCenter + new Vector3(-CastleHalfWidth + 1.2f, WallHeight - 0.4f, 0));
+            BuildLantern(keepCenter + new Vector3(CastleHalfWidth - 1.2f, WallHeight - 0.4f, 0));
+
+            Color gamblerColor = new Color(0.5f, 0.15f, 0.15f);
+            var gamblerBuilt = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+            {
+                bodyColor = gamblerColor,
+                accentColor = Color.Lerp(gamblerColor, Color.white, 0.5f),
+                scale = 1f, horns = false, weapon = false, hunched = false
+            });
+            gamblerBuilt.root.name = "Gambler";
+            gamblerBuilt.root.position = keepCenter + new Vector3(-2.5f, 0, 1.5f);
+            var gamblerCol = gamblerBuilt.root.gameObject.AddComponent<CapsuleCollider>();
+            gamblerCol.height = 1.9f;
+            gamblerCol.radius = 0.35f;
+            gamblerCol.center = new Vector3(0, 0.95f, 0);
+
+            var table = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            table.name = "GambleTable";
+            table.transform.SetParent(transform);
+            table.transform.position = keepCenter + new Vector3(0.5f, 0.45f, 1.5f);
+            table.transform.localScale = new Vector3(1.8f, 0.9f, 1.8f);
+            SetColor(table, new Color(0.2f, 0.35f, 0.22f));
+
+            BuildDie(keepCenter + new Vector3(0.2f, 0.95f, 1.7f));
+            BuildDie(keepCenter + new Vector3(0.8f, 0.95f, 1.35f));
+
+            var triggerGO = new GameObject("GambleTrigger");
+            triggerGO.transform.SetParent(transform);
+            triggerGO.transform.position = keepCenter + new Vector3(1.5f, 1f, 1.5f);
+            var col = triggerGO.AddComponent<BoxCollider>();
+            col.isTrigger = true;
+            col.size = new Vector3(3f, 2.2f, 3f);
+
+            GambleInteractable = triggerGO.AddComponent<Interactable>();
+            GambleInteractable.prompt = "Try your luck (E)";
+        }
+
+        // The "grand portal" -- what used to be BuildDungeonGate's plain two-pillar arch is
+        // now the castle's own rear gate: taller flanking towers, a wider glowing archway,
+        // a short flight of steps leading up to it, and statues at its base. Same
+        // GateInteractable wiring as the old gate (GameBootstrap.EnterOpenWorld), just a
+        // much bigger frame around it.
+        private void BuildGrandPortal(Vector3 pos)
+        {
+            const float gateHalf = 3.2f;
+            const float towerRadius = 2.3f;
+            float towerHeight = WallHeight + 7f;
+
+            // Portal towers sit at gateHalf+towerRadius from center, so their own outer
+            // edge (+towerRadius again) already reaches past CastleHalfWidth (7) with
+            // these numbers -- they close the keep's north face on their own, no separate
+            // flanking wall stub needed between them and the keep's corner towers.
+            BuildPortalTower(pos + new Vector3(-gateHalf - towerRadius, 0, 0), towerRadius, towerHeight);
+            BuildPortalTower(pos + new Vector3(gateHalf + towerRadius, 0, 0), towerRadius, towerHeight);
+
+            var arch = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            arch.name = "PortalArch";
+            arch.transform.SetParent(transform);
+            arch.transform.position = pos + new Vector3(0, towerHeight * 0.55f, 0);
+            arch.transform.localScale = new Vector3(gateHalf * 2f + 1.6f, 1f, 1f);
+            SetColor(arch, KeepStoneColor);
+
+            var portalSlab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            portalSlab.name = "GrandPortalGlow";
+            var slabCol = portalSlab.GetComponent<Collider>();
+            if (slabCol != null) Destroy(slabCol);
+            portalSlab.transform.SetParent(transform);
+            portalSlab.transform.position = pos + new Vector3(0, towerHeight * 0.55f / 2f, 0);
+            portalSlab.transform.localScale = new Vector3(gateHalf * 2f - 0.6f, towerHeight * 0.55f - 0.4f, 0.2f);
+            SetColor(portalSlab, new Color(0.65f, 0.2f, 0.8f));
+            var glow = portalSlab.AddComponent<PortalGlow>();
+            glow.colorA = new Color(0.45f, 0.1f, 0.6f);
+            glow.colorB = new Color(0.85f, 0.55f, 1f);
+
+            // A few steps up to the threshold -- reads as a real approach instead of the
+            // portal just standing flush on the ground.
+            for (int i = 0; i < 3; i++)
+            {
+                var step = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                step.name = "PortalStep";
+                step.transform.SetParent(transform);
+                float stepZ = (2 - i) * 0.5f;
+                step.transform.position = pos + new Vector3(0, 0.1f + i * 0.001f, stepZ);
+                step.transform.localScale = new Vector3(gateHalf * 2f + 2f - i * 0.6f, 0.2f, 0.6f);
+                SetColor(step, WallStoneColor);
+            }
+
+            VillageDecor.BuildStatue(transform, pos + new Vector3(-gateHalf - towerRadius * 1.7f, 0, 0.6f), -70f, StatueStoneColor);
+            VillageDecor.BuildStatue(transform, pos + new Vector3(gateHalf + towerRadius * 1.7f, 0, 0.6f), 70f, StatueStoneColor);
+            VillageDecor.BuildBanner(transform, pos + new Vector3(-gateHalf - 0.3f, towerHeight * 0.55f + 1f, 0), new Color(0.65f, 0.2f, 0.8f), 0f);
+            VillageDecor.BuildBanner(transform, pos + new Vector3(gateHalf + 0.3f, towerHeight * 0.55f + 1f, 0), new Color(0.65f, 0.2f, 0.8f), 180f);
+
+            var triggerGO = new GameObject("GrandPortalTrigger");
+            triggerGO.transform.SetParent(transform);
+            triggerGO.transform.position = pos + new Vector3(0, 1f, -1.4f);
+            var col = triggerGO.AddComponent<BoxCollider>();
+            col.isTrigger = true;
+            col.size = new Vector3(gateHalf * 2f, 2.4f, 1.8f);
+
+            GateInteractable = triggerGO.AddComponent<Interactable>();
+            GateInteractable.prompt = "Enter the Dungeon (E)";
+        }
+
+        private void BuildPortalTower(Vector3 pos, float radius, float towerHeight)
+        {
+            var body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            body.name = "PortalTower";
+            body.transform.SetParent(transform);
+            body.transform.position = pos + new Vector3(0, towerHeight / 2f, 0);
+            body.transform.localScale = new Vector3(radius * 2f, towerHeight / 2f, radius * 2f);
+            SetColor(body, KeepStoneColor);
+
+            var roof = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            roof.name = "PortalTowerRoof";
+            var roofCol = roof.GetComponent<Collider>();
+            if (roofCol != null) Destroy(roofCol);
+            roof.transform.SetParent(transform);
+            roof.transform.position = pos + new Vector3(0, towerHeight + radius * 0.4f, 0);
+            roof.transform.localScale = new Vector3(radius * 2.3f, radius * 1.4f, radius * 2.3f);
+            SetColor(roof, new Color(0.32f, 0.14f, 0.16f));
+
+            BuildLantern(pos + new Vector3(0, towerHeight + 1.2f, 0), new Color(0.75f, 0.5f, 1f));
+        }
+
         private void BuildVendorStall(Vector3 pos, string vendorName, string flavor, Color npcColor)
         {
             var stallRoot = new GameObject(vendorName + "Stall");
             stallRoot.transform.SetParent(transform);
             stallRoot.transform.position = pos;
 
-            // Poles + a peaked cloth canopy -- turns a bare counter-and-NPC into something
-            // that actually reads as a market stall.
             Color canopyColor = new Color(Mathf.Min(1f, npcColor.r + 0.15f), Mathf.Min(1f, npcColor.g + 0.15f), Mathf.Min(1f, npcColor.b + 0.15f));
             BuildStallPole(stallRoot.transform, new Vector3(-1.5f, 0, 1.6f));
             BuildStallPole(stallRoot.transform, new Vector3(1.5f, 0, 1.6f));
@@ -351,13 +574,6 @@ namespace DungeonCrawler.World
             counter.transform.localScale = new Vector3(2.4f, 1f, 0.7f);
             SetColor(counter, new Color(0.32f, 0.22f, 0.14f));
 
-            // Same Humanoid archetype every humanoid enemy (and the player, see
-            // PlayerCharacter.BuildVisual) already uses -- was the last bare capsule left
-            // in the hub. A CapsuleCollider is added back manually since ProceduralMonster
-            // parts always destroy their own (decorative-only there, since an enemy's
-            // CharacterController is what actually collides) -- this NPC has no such
-            // stand-in, and losing its solid body would let the player walk straight
-            // through it.
             var npcBuilt = ProceduralMonster.Humanoid(stallRoot.transform, new ProceduralMonster.HumanoidSpec
             {
                 bodyColor = npcColor,
@@ -398,8 +614,6 @@ namespace DungeonCrawler.World
             SetColor(pole, new Color(0.25f, 0.18f, 0.1f));
         }
 
-        // Two cubes tilted toward each other -- a crude but instantly-readable peaked
-        // awning over the stall.
         private void BuildCanopy(Transform parent, Vector3 localPos, Color color)
         {
             var left = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -446,122 +660,6 @@ namespace DungeonCrawler.World
             go.AddComponent<TrainingDummy>();
         }
 
-        private void BuildDungeonGate(Vector3 pos)
-        {
-            BuildGatePillar(pos + new Vector3(-2.2f, 0, 0));
-            BuildGatePillar(pos + new Vector3(2.2f, 0, 0));
-
-            var lintel = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            lintel.name = "GateLintel";
-            lintel.transform.SetParent(transform);
-            lintel.transform.position = pos + new Vector3(0, WallHeight + 0.6f, 0);
-            lintel.transform.localScale = new Vector3(5.2f, 0.7f, 0.7f);
-            SetColor(lintel, new Color(0.2f, 0.05f, 0.08f));
-
-            // A thin glowing slab standing in the gate opening -- simpler and less
-            // rotation-error-prone than a rotated Plane for a vertical "portal surface."
-            var portal = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            portal.name = "GatePortal";
-            var portalCol = portal.GetComponent<Collider>();
-            if (portalCol != null) Destroy(portalCol);
-            portal.transform.SetParent(transform);
-            portal.transform.position = pos + new Vector3(0, WallHeight / 2f + 0.15f, 0);
-            portal.transform.localScale = new Vector3(3.6f, WallHeight - 0.3f, 0.15f);
-            SetColor(portal, new Color(0.6f, 0.15f, 0.75f));
-            portal.AddComponent<PortalGlow>();
-
-            var triggerGO = new GameObject("GateTrigger");
-            triggerGO.transform.SetParent(transform);
-            triggerGO.transform.position = pos + new Vector3(0, 1f, -1.2f);
-            var col = triggerGO.AddComponent<BoxCollider>();
-            col.isTrigger = true;
-            col.size = new Vector3(4.5f, 2.4f, 1.6f);
-
-            GateInteractable = triggerGO.AddComponent<Interactable>();
-            GateInteractable.prompt = "Enter the Dungeon (E)";
-        }
-
-        private void BuildGatePillar(Vector3 basePos)
-        {
-            var pillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            pillar.name = "GatePillar";
-            pillar.transform.SetParent(transform);
-            pillar.transform.position = basePos + new Vector3(0, WallHeight / 2f, 0);
-            pillar.transform.localScale = new Vector3(0.8f, WallHeight, 0.8f);
-            SetColor(pillar, new Color(0.18f, 0.15f, 0.15f));
-        }
-
-        // Enclosed room reached through the west archway -- real walls plus a flat ceiling
-        // (unlike the fairground, this is meant to read as an interior). Houses the
-        // gambling table; GameBootstrap wires GambleInteractable to open GambleUI once the
-        // player's wallet exists.
-        private void BuildTavernWing()
-        {
-            float centerX = -(SquareHalf + WingHalfWidth);
-            Vector3 wingCenter = Center + new Vector3(centerX, 0, 0);
-
-            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            floor.name = "TavernFloor";
-            floor.transform.SetParent(transform);
-            floor.transform.position = wingCenter;
-            floor.transform.localScale = new Vector3(WingHalfWidth * 2f / 10f, 1f, WingHalfDepth * 2f / 10f);
-            SetColor(floor, new Color(0.32f, 0.2f, 0.12f));
-
-            // North, south, and the outer (west) wall; the east side is the square's own
-            // west wall, already gapped for this doorway (see BuildCastleWalls).
-            BuildWallRunX(WingHalfDepth, centerX - WingHalfWidth, centerX + WingHalfWidth);
-            BuildWallRunX(-WingHalfDepth, centerX - WingHalfWidth, centerX + WingHalfWidth);
-            BuildWallRunZ(centerX - WingHalfWidth, -WingHalfDepth, WingHalfDepth);
-
-            var ceiling = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            ceiling.name = "TavernRoof";
-            var ceilCol = ceiling.GetComponent<Collider>();
-            if (ceilCol != null) Destroy(ceilCol);
-            ceiling.transform.SetParent(transform);
-            ceiling.transform.position = wingCenter + new Vector3(0, WallHeight, 0);
-            ceiling.transform.rotation = Quaternion.Euler(180, 0, 0);
-            ceiling.transform.localScale = new Vector3(WingHalfWidth * 2f / 10f, 1f, WingHalfDepth * 2f / 10f);
-            SetColor(ceiling, new Color(0.16f, 0.1f, 0.07f));
-
-            BuildLantern(wingCenter + new Vector3(0, WallHeight - 0.6f, 0));
-            BuildLantern(wingCenter + new Vector3(WingHalfWidth - 0.5f, WallHeight - 0.6f, WingHalfDepth - 1.5f));
-            BuildLantern(wingCenter + new Vector3(WingHalfWidth - 0.5f, WallHeight - 0.6f, -(WingHalfDepth - 1.5f)));
-
-            Color gamblerColor = new Color(0.5f, 0.15f, 0.15f);
-            var gamblerBuilt = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
-            {
-                bodyColor = gamblerColor,
-                accentColor = Color.Lerp(gamblerColor, Color.white, 0.5f),
-                scale = 1f, horns = false, weapon = false, hunched = false
-            });
-            gamblerBuilt.root.name = "Gambler";
-            gamblerBuilt.root.position = wingCenter + new Vector3(-6f, 0, 0);
-            var gamblerCol = gamblerBuilt.root.gameObject.AddComponent<CapsuleCollider>();
-            gamblerCol.height = 1.9f;
-            gamblerCol.radius = 0.35f;
-            gamblerCol.center = new Vector3(0, 0.95f, 0);
-
-            var table = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            table.name = "GambleTable";
-            table.transform.SetParent(transform);
-            table.transform.position = wingCenter + new Vector3(-3f, 0.45f, 0);
-            table.transform.localScale = new Vector3(1.8f, 0.9f, 1.8f);
-            SetColor(table, new Color(0.2f, 0.35f, 0.22f));
-
-            BuildDie(wingCenter + new Vector3(-3.3f, 0.95f, 0.2f));
-            BuildDie(wingCenter + new Vector3(-2.7f, 0.95f, -0.15f));
-
-            var triggerGO = new GameObject("GambleTrigger");
-            triggerGO.transform.SetParent(transform);
-            triggerGO.transform.position = wingCenter + new Vector3(-1f, 1f, 0);
-            var col = triggerGO.AddComponent<BoxCollider>();
-            col.isTrigger = true;
-            col.size = new Vector3(3f, 2.2f, 3f);
-
-            GambleInteractable = triggerGO.AddComponent<Interactable>();
-            GambleInteractable.prompt = "Try your luck (E)";
-        }
-
         private void BuildDie(Vector3 pos)
         {
             var die = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -575,17 +673,17 @@ namespace DungeonCrawler.World
             SetColor(die, Color.white);
         }
 
-        // Open-air, undecorated by walls (unlike the tavern) -- a lightly fenced-off patch
-        // of ground marked by its own floor color and festive bunting instead of a
-        // fortified room, matching a fairground's outdoor-carnival feel. Houses the claw
-        // machine; GameBootstrap fills in ClawMachine.prizePool and wires its Interactable.
-        private void BuildFairgroundWing()
+        // West archway -- games of chance and fairground fun, both the "carnival" half of
+        // "medieval carnival castle village": festival tents and bunting framing the claw
+        // machine. Houses the claw machine; GameBootstrap fills in ClawMachine.prizePool
+        // and wires its Interactable.
+        private void BuildCarnivalWing()
         {
-            float centerX = SquareHalf + WingHalfWidth;
+            float centerX = -(SquareHalf + WingHalfWidth);
             Vector3 wingCenter = Center + new Vector3(centerX, 0, 0);
 
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            floor.name = "FairgroundFloor";
+            floor.name = "CarnivalFloor";
             floor.transform.SetParent(transform);
             floor.transform.position = wingCenter;
             floor.transform.localScale = new Vector3(WingHalfWidth * 2f / 10f, 1f, WingHalfDepth * 2f / 10f);
@@ -598,13 +696,21 @@ namespace DungeonCrawler.World
             };
             Vector3[] poleOffsets =
             {
-                new Vector3(-7f, 0, 6f), new Vector3(7f, 0, 6f),
-                new Vector3(-7f, 0, -6f), new Vector3(7f, 0, -6f)
+                new Vector3(-8f, 0, 7f), new Vector3(8f, 0, 7f),
+                new Vector3(-8f, 0, -7f), new Vector3(8f, 0, -7f)
             };
             for (int i = 0; i < poleOffsets.Length; i++)
                 BuildBuntingPole(wingCenter + poleOffsets[i], flagColors[i]);
 
-            BuildClawMachine(wingCenter + new Vector3(2f, 0, 0));
+            VillageDecor.BuildCarnivalTent(transform, wingCenter + new Vector3(-6f, 0, 0), new Color(0.85f, 0.2f, 0.25f), Color.white, 15f);
+            VillageDecor.BuildCarnivalTent(transform, wingCenter + new Vector3(6.5f, 0, -3f), new Color(0.2f, 0.4f, 0.85f), Color.white, -25f);
+
+            BuildClawMachine(wingCenter + new Vector3(2f, 0, 3f));
+
+            // The gambling table used to sit in its own enclosed room in this wing --
+            // it's since moved into the castle courtyard (see BuildCourtyardInterior), so
+            // this third tent just keeps the wing from reading empty in its place.
+            VillageDecor.BuildCarnivalTent(transform, wingCenter + new Vector3(-2f, 0, -6f), new Color(0.95f, 0.75f, 0.2f), new Color(0.3f, 0.2f, 0.1f), 5f);
         }
 
         private void BuildBuntingPole(Vector3 pos, Color flagColor)
@@ -638,9 +744,6 @@ namespace DungeonCrawler.World
             basePad.transform.localScale = new Vector3(1.6f, 0.8f, 1.6f);
             SetColor(basePad, new Color(0.85f, 0.2f, 0.35f));
 
-            // A translucent "glass" cabinet -- Standard shader set to alpha-blend at
-            // runtime (its default Inspector-driven Transparent mode has no effect unless
-            // the blend state/keywords/queue are also set directly, so all four are).
             var cabinet = GameObject.CreatePrimitive(PrimitiveType.Cube);
             cabinet.name = "ClawMachineCabinet";
             cabinet.transform.SetParent(transform);
@@ -695,6 +798,36 @@ namespace DungeonCrawler.World
 
             var interactable = triggerGO.AddComponent<Interactable>();
             interactable.prompt = "Claw Machine (E)";
+        }
+
+        // East archway -- the verticality/terrain wing the brief asked for: hills to climb,
+        // rock outcrops, and statues along a raised scenic path. Purely decorative/
+        // atmospheric -- no interactables live here, it's the village's "garden" half.
+        private void BuildTerraceWing()
+        {
+            float centerX = SquareHalf + WingHalfWidth;
+            Vector3 wingCenter = Center + new Vector3(centerX, 0, 0);
+
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            floor.name = "TerraceFloor";
+            floor.transform.SetParent(transform);
+            floor.transform.position = wingCenter;
+            floor.transform.localScale = new Vector3(WingHalfWidth * 2f / 10f, 1f, WingHalfDepth * 2f / 10f);
+            SetColor(floor, new Color(0.28f, 0.34f, 0.2f));
+
+            Color grass = new Color(0.32f, 0.42f, 0.22f);
+            VillageDecor.BuildHill(transform, wingCenter + new Vector3(-6f, 0, 4f), 4.5f, 2.2f, grass);
+            VillageDecor.BuildHill(transform, wingCenter + new Vector3(6f, 0, -5f), 3.5f, 1.6f, grass);
+            VillageDecor.BuildHill(transform, wingCenter + new Vector3(3f, 0, 6f), 2.6f, 1.2f, grass);
+
+            VillageDecor.BuildRockCluster(transform, wingCenter + new Vector3(-2f, 0, -6f), 1.3f);
+            VillageDecor.BuildRockCluster(transform, wingCenter + new Vector3(8f, 0, 3f), 0.9f);
+            VillageDecor.BuildRockCluster(transform, wingCenter + new Vector3(-8f, 0, -2f), 1.1f);
+
+            VillageDecor.BuildStatue(transform, wingCenter + new Vector3(0f, 0, 0f), 200f, StatueStoneColor);
+            VillageDecor.BuildStatue(transform, wingCenter + new Vector3(-6f, 2.2f, 4f), 160f, StatueStoneColor); // atop the tallest hill, a lookout guardian
+
+            BuildLantern(wingCenter + new Vector3(0f, 1.4f, -1.5f));
         }
 
         private void SetColor(GameObject go, Color c)
