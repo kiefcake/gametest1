@@ -13,7 +13,8 @@ namespace DungeonCrawler.Classes
         private static AbilityData MakeAbility(string name, AbilitySlot slot, float cd, float mana,
             float damage = 0, float heal = 0, StatusEffectType status = default,
             float statusDur = 0, float statusMag = 0, bool cleanse = false, bool aoe = false, float aoeR = 0,
-            bool selfTargeted = false)
+            bool selfTargeted = false, AbilityId id = AbilityId.None,
+            string runeAName = null, string runeADesc = null, string runeBName = null, string runeBDesc = null)
         {
             var a = ScriptableObject.CreateInstance<AbilityData>();
             a.abilityName = name;
@@ -29,6 +30,11 @@ namespace DungeonCrawler.Classes
             a.isAoE = aoe;
             a.aoeRadius = aoeR;
             a.isSelfTargeted = selfTargeted;
+            a.id = id;
+            a.runeAName = runeAName;
+            a.runeADescription = runeADesc;
+            a.runeBName = runeBName;
+            a.runeBDescription = runeBDesc;
             return a;
         }
 
@@ -41,11 +47,17 @@ namespace DungeonCrawler.Classes
             c.weaponSprite = Resources.Load<Sprite>("Sprites/Equipment/sword_knight"); // Sword & Shield per locked design -- sword icon stands in for the set
             c.baseHP = 250; c.baseDEF = 15; c.baseATT = 12; c.baseSPD = 5; c.baseDEX = 5; c.baseVIT = 8; c.baseWIS = 3; c.baseMP = 40;
             c.abilities.Add(MakeAbility("Shield Slam", AbilitySlot.Basic1, 2.5f, 8, damage: 15,
-                status: StatusEffectType.ArmorBreak, statusDur: 4f, statusMag: 0.5f));
+                status: StatusEffectType.ArmorBreak, statusDur: 4f, statusMag: 0.5f, id: AbilityId.ShieldSlam,
+                runeAName: "Cleave", runeADesc: "Shield Slam becomes a small AoE, striking every enemy near your target.",
+                runeBName: "Riposte", runeBDesc: "Every Shield Slam briefly Fortifies you."));
             c.abilities.Add(MakeAbility("Bulwark Stance", AbilitySlot.Basic2, 6f, 15,
-                status: StatusEffectType.Fortified, statusDur: 4f, statusMag: 0.5f, selfTargeted: true));
+                status: StatusEffectType.Fortified, statusDur: 4f, statusMag: 0.5f, selfTargeted: true, id: AbilityId.BulwarkStance,
+                runeAName: "Aegis", runeADesc: "Bulwark Stance's Fortified radiates out to nearby allies.",
+                runeBName: "Retaliation", runeBDesc: "Casting Bulwark Stance blasts nearby enemies for damage scaled by your Defense."));
             c.abilities.Add(MakeAbility("Unbreakable", AbilitySlot.Ultimate, 45f, 40,
-                status: StatusEffectType.Fortified, statusDur: 5f, statusMag: 0.75f, aoe: true, aoeR: 4f, selfTargeted: true));
+                status: StatusEffectType.Fortified, statusDur: 5f, statusMag: 0.75f, aoe: true, aoeR: 4f, selfTargeted: true, id: AbilityId.Unbreakable,
+                runeAName: "Guardian's Cry", runeADesc: "Unbreakable's radius grows and taunts every enemy it reaches.",
+                runeBName: "Adamant", runeBDesc: "Unbreakable also heals you for 15% of your max HP."));
             return c;
         }
 
@@ -60,14 +72,20 @@ namespace DungeonCrawler.Classes
             // Still well below Wizard(16)/Knight(12): Priest isn't becoming a damage class,
             // just no longer helpless without an ally to heal.
             c.baseHP = 130; c.baseDEF = 4; c.baseATT = 8; c.baseSPD = 5; c.baseDEX = 6; c.baseVIT = 6; c.baseWIS = 14; c.baseMP = 90;
-            c.abilities.Add(MakeAbility("Mending Light", AbilitySlot.Basic1, 2f, 10, heal: 25, cleanse: true));
+            c.abilities.Add(MakeAbility("Mending Light", AbilitySlot.Basic1, 2f, 10, heal: 25, cleanse: true, id: AbilityId.MendingLight,
+                runeAName: "Overflow", runeADesc: "Mending Light heals for much more when its target is critically low.",
+                runeBName: "Purify", runeBDesc: "Mending Light also grants a brief Fortified after cleansing."));
             // Replaces Sacred Ground -- Priest was 3/3 pure-healing abilities with zero way
             // to deal damage itself. Sick (reduced healing received) is the offensive hook
             // that still reads as "holy," not just a reskinned Wizard bolt; see Health.Heal
             // for where Sick actually gets consumed (previously a completely inert status).
             c.abilities.Add(MakeAbility("Holy Smite", AbilitySlot.Basic2, 4f, 14, damage: 12,
-                status: StatusEffectType.Sick, statusDur: 4f, statusMag: 0.6f));
-            c.abilities.Add(MakeAbility("Rebirth", AbilitySlot.Ultimate, 60f, 50, heal: 999));
+                status: StatusEffectType.Sick, statusDur: 4f, statusMag: 0.6f, id: AbilityId.HolySmite,
+                runeAName: "Wildfire", runeADesc: "Holy Smite also afflicts a nearby enemy with Sick.",
+                runeBName: "Judgment", runeBDesc: "Holy Smite deals bonus damage to a target already suffering a debuff."));
+            c.abilities.Add(MakeAbility("Rebirth", AbilitySlot.Ultimate, 60f, 50, heal: 999, id: AbilityId.Rebirth,
+                runeAName: "Guardian Angel", runeADesc: "Rebirth also grants the revived ally a brief Fortified.",
+                runeBName: "Second Wind", runeBDesc: "Rebirth refunds half of your max mana."));
             return c;
         }
 
@@ -83,11 +101,17 @@ namespace DungeonCrawler.Classes
             // buff timed with group burst windows; solo-testable version buffs the Paladin's
             // own damage until there's a second player to actually target.
             c.abilities.Add(MakeAbility("Empower", AbilitySlot.Basic1, 8f, 15,
-                status: StatusEffectType.Empowered, statusDur: 6f, statusMag: 0.35f, selfTargeted: true));
+                status: StatusEffectType.Empowered, statusDur: 6f, statusMag: 0.35f, selfTargeted: true, id: AbilityId.Empower,
+                runeAName: "Crusader's Zeal", runeADesc: "Empower becomes a party-wide AoE buff.",
+                runeBName: "Momentum", runeBDesc: "Empower's damage bonus is significantly stronger."));
             c.abilities.Add(MakeAbility("Hex", AbilitySlot.Basic2, 5f, 12,
-                status: StatusEffectType.Weaken, statusDur: 5f, statusMag: 0.3f));
+                status: StatusEffectType.Weaken, statusDur: 5f, statusMag: 0.3f, id: AbilityId.Hex,
+                runeAName: "Spreading Hex", runeADesc: "Hex also weakens a second nearby enemy.",
+                runeBName: "Vulnerability", runeBDesc: "Hex also curses its target, increasing damage taken."));
             c.abilities.Add(MakeAbility("Chronoshift", AbilitySlot.Ultimate, 50f, 45,
-                status: StatusEffectType.Paralyze, statusDur: 2.5f, statusMag: 1f));
+                status: StatusEffectType.Paralyze, statusDur: 2.5f, statusMag: 1f, id: AbilityId.Chronoshift,
+                runeAName: "Temporal Rift", runeADesc: "Chronoshift becomes an AoE, paralyzing every enemy nearby.",
+                runeBName: "Haste", runeBDesc: "Chronoshift also empowers you with a burst of damage after casting."));
             return c;
         }
 
@@ -100,11 +124,17 @@ namespace DungeonCrawler.Classes
             c.weaponSprite = Resources.Load<Sprite>("Sprites/Equipment/staff_wizard");
             c.baseHP = 110; c.baseDEF = 3; c.baseATT = 16; c.baseSPD = 5; c.baseDEX = 8; c.baseVIT = 5; c.baseWIS = 7; c.baseMP = 80;
             c.abilities.Add(MakeAbility("Venom Bolt", AbilitySlot.Basic1, 1.5f, 8, damage: 10,
-                status: StatusEffectType.Poison, statusDur: 4f, statusMag: 4f));
+                status: StatusEffectType.Poison, statusDur: 4f, statusMag: 4f, id: AbilityId.VenomBolt,
+                runeAName: "Virulent", runeADesc: "When a poisoned target dies, its poison spreads to nearby enemies.",
+                runeBName: "Concentrated", runeBDesc: "Venom Bolt also poisons and damages the nearest other enemy."));
             c.abilities.Add(MakeAbility("Icicle", AbilitySlot.Basic2, 4f, 14, damage: 8,
-                status: StatusEffectType.Paralyze, statusDur: 1.75f, statusMag: 1f)); // "freeze" = Paralyze, locked: 1.5-2s, no stacking duration
+                status: StatusEffectType.Paralyze, statusDur: 1.75f, statusMag: 1f, id: AbilityId.Icicle, // "freeze" = Paralyze, locked: 1.5-2s, no stacking duration
+                runeAName: "Shatter", runeADesc: "Icicle deals bonus damage to nearby enemies when it finishes off a low-HP target.",
+                runeBName: "Deep Freeze", runeBDesc: "Icicle's freeze lasts longer and deals extra damage."));
             c.abilities.Add(MakeAbility("Death Mark", AbilitySlot.Ultimate, 40f, 35, damage: 40,
-                status: StatusEffectType.Curse, statusDur: 5f, statusMag: 0.4f));
+                status: StatusEffectType.Curse, statusDur: 5f, statusMag: 0.4f, id: AbilityId.DeathMark,
+                runeAName: "Plague", runeADesc: "Death Mark's curse spreads to nearby enemies.",
+                runeBName: "Execute", runeBDesc: "Death Mark deals more damage the lower the target's health."));
             return c;
         }
     }

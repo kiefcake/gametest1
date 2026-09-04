@@ -33,6 +33,8 @@ namespace DungeonCrawler.Enemies
             loot.lootTable = Resources.Load<LootTable>("Data/Loot/AbyssLootTable");
             loot.minGold = 4;
             loot.maxGold = 9;
+            loot.minEssence = 1;
+            loot.maxEssence = 3;
             return go;
         }
 

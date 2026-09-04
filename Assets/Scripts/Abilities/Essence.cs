@@ -4,11 +4,12 @@ using UnityEngine;
 namespace DungeonCrawler.Abilities
 {
     // Second per-player currency, alongside PlayerWallet's gold -- spent exclusively on
-    // ability ranks (see AbilityCaster.RankUp), never on potions/gear, so investing in your
-    // build and investing in raw stats don't compete for the same wallet. Earned from
-    // combat contribution (see LootDropper.RegisterEssenceContribution) rather than a flat
-    // per-kill amount, so support-oriented play (a heal, a cleanse, a debuff that helps
-    // land someone else's kill) pays out too, not just landing the killing blow.
+    // ability ranks/runes (see AbilityCaster.RankUp/ChooseRune), never on potions/gear, so
+    // investing in your build and investing in raw stats don't compete for the same
+    // wallet. Earned as a flat per-kill amount (see LootDropper.minEssence/maxEssence),
+    // same shape as gold -- a true damage/support-contribution split would matter more in
+    // real multiplayer than it does for solo-testable play right now, and can be layered
+    // onto this same Add() call later without changing anything that spends it.
     //
     // Deliberately resets every run: this component lives on the player GameObject
     // BeginRun() creates fresh each time, same as Health/Mana/AbilityCaster -- per-run

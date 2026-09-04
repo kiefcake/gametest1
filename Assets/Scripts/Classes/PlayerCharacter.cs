@@ -11,6 +11,7 @@ namespace DungeonCrawler.Classes
     [RequireComponent(typeof(StatusEffectController))]
     [RequireComponent(typeof(AbilityCaster))]
     [RequireComponent(typeof(Mana))]
+    [RequireComponent(typeof(Essence))]
     public class PlayerCharacter : MonoBehaviour
     {
         // The first-person camera (see GameBootstrap/FirstPersonLook) sits inside this
@@ -27,6 +28,7 @@ namespace DungeonCrawler.Classes
         public Mana mana;
         public StatusEffectController statusController;
         public AbilityCaster abilityCaster;
+        public Essence essence;
 
         // The floating weapon icon above the player (not the first-person viewmodel --
         // see WeaponViewmodel for that). Exposed so equipping a new weapon can update
@@ -49,6 +51,7 @@ namespace DungeonCrawler.Classes
             mana = GetComponent<Mana>();
             statusController = GetComponent<StatusEffectController>();
             abilityCaster = GetComponent<AbilityCaster>();
+            essence = GetComponent<Essence>();
             statusController.health = health;
             health.statusController = statusController;
             health.isPlayer = true; // gates RunModifiers.DoubleDamageTaken -- enemies share this same Health class
@@ -115,7 +118,7 @@ namespace DungeonCrawler.Classes
             mana.SetMax(Stats.GetValue(StatType.MP), refill: true);
 
             abilityCaster.abilities = new List<AbilityData>(def.abilities);
-            abilityCaster.Init(health, mana, Stats, statusController);
+            abilityCaster.Init(health, mana, Stats, statusController, essence);
 
             BuildVisual(def);
         }

@@ -16,6 +16,11 @@ namespace DungeonCrawler.Loot
         public GameObject pickupPrefab; // simple stand-in: a small cube/quad with a WorldPickup component
         public int minGold = 0;
         public int maxGold = 0;
+        // Flat per-kill Essence award (see Abilities/Essence.cs) -- spent on ability
+        // ranks/runes. Set from GameBootstrap alongside gold, scaled the same way trash
+        // vs. boss gold already is.
+        public int minEssence = 0;
+        public int maxEssence = 0;
         // A boss dropping loot on the floor for players to scramble over reads worse than a
         // treasure chest -- set true for the boss only (see GameBootstrap.SpawnBoss).
         // Trash mobs (imps) keep the normal floor-scatter below.
@@ -44,6 +49,17 @@ namespace DungeonCrawler.Loot
                     wallet.Add(amount);
                     DamageNumber.SpawnGold(transform.position + Vector3.up * 1.6f, amount);
                     SfxLibrary.PlayAt(SfxLibrary.Gold, transform.position, 0.3f);
+                }
+            }
+
+            if (maxEssence > 0)
+            {
+                int amount = UnityEngine.Random.Range(minEssence, maxEssence + 1);
+                var essence = FindFirstObjectByType<Abilities.Essence>();
+                if (essence != null && amount > 0)
+                {
+                    essence.Add(amount);
+                    DamageNumber.SpawnGold(transform.position + Vector3.up * 2f, amount); // reuses the gold-style floating number; distinct icon/color is a follow-up
                 }
             }
 

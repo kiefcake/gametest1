@@ -436,6 +436,8 @@ namespace DungeonCrawler
             loot.lootTable = Resources.Load<LootTable>("Data/Loot/AbyssLootTable"); // reuse the trash table, not the boss table -- this is a miniboss, not a dungeon boss
             loot.minGold = 25;
             loot.maxGold = 45;
+            loot.minEssence = 8;
+            loot.maxEssence = 15;
             h.OnDeath += () => onDefeated?.Invoke();
         }
 
@@ -775,6 +777,8 @@ namespace DungeonCrawler
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
             loot.minGold = spiked ? 7 : 4;
             loot.maxGold = spiked ? 12 : 8;
+            loot.minEssence = spiked ? 2 : 1;
+            loot.maxEssence = spiked ? 4 : 3;
         }
 
         private void SpawnRangedImp(Vector3 pos)
@@ -790,6 +794,8 @@ namespace DungeonCrawler
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
             loot.minGold = 6;
             loot.maxGold = 10;
+            loot.minEssence = 2;
+            loot.maxEssence = 3;
         }
 
         private void SpawnScurrierImp(Vector3 pos)
@@ -805,6 +811,8 @@ namespace DungeonCrawler
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
             loot.minGold = 2;
             loot.maxGold = 5;
+            loot.minEssence = 1;
+            loot.maxEssence = 2;
         }
 
         private void SpawnAbyssMage(Vector3 pos)
@@ -820,6 +828,8 @@ namespace DungeonCrawler
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
             loot.minGold = 8;
             loot.maxGold = 14;
+            loot.minEssence = 3;
+            loot.maxEssence = 5;
         }
 
         private void SpawnFrostSkeleton(Vector3 pos)
@@ -835,6 +845,8 @@ namespace DungeonCrawler
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
             loot.minGold = 4;
             loot.maxGold = 9;
+            loot.minEssence = 1;
+            loot.maxEssence = 3;
         }
 
         private void SpawnPitSnake(Vector3 pos)
@@ -850,6 +862,8 @@ namespace DungeonCrawler
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
             loot.minGold = 2;
             loot.maxGold = 5;
+            loot.minEssence = 1;
+            loot.maxEssence = 2;
         }
 
         private void SpawnPitDartThrower(Vector3 pos)
@@ -865,6 +879,8 @@ namespace DungeonCrawler
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
             loot.minGold = 4;
             loot.maxGold = 9;
+            loot.minEssence = 1;
+            loot.maxEssence = 3;
         }
 
         private void SpawnFrostLichBoss(Vector3 pos)
@@ -882,6 +898,8 @@ namespace DungeonCrawler
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
             loot.minGold = 90;
             loot.maxGold = 140;
+            loot.minEssence = 30;
+            loot.maxEssence = 45;
             loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
             h.OnDeath += PlayerProgress.MarkFrozenCryptBossDefeated;
         }
@@ -903,6 +921,8 @@ namespace DungeonCrawler
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
             loot.minGold = 90;
             loot.maxGold = 140;
+            loot.minEssence = 30;
+            loot.maxEssence = 45;
             loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
             h.OnDeath += PlayerProgress.MarkSunkenRuinsBossDefeated;
         }
@@ -922,6 +942,8 @@ namespace DungeonCrawler
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
             loot.minGold = 90;
             loot.maxGold = 140;
+            loot.minEssence = 30;
+            loot.maxEssence = 45;
             loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
             h.OnDeath += PlayerProgress.MarkAbyssBossDefeated;
         }
@@ -941,6 +963,8 @@ namespace DungeonCrawler
             loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
             loot.minGold = 90;
             loot.maxGold = 140;
+            loot.minEssence = 30;
+            loot.maxEssence = 45;
             loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
             h.OnDeath += PlayerProgress.MarkSnakePitBossDefeated;
         }

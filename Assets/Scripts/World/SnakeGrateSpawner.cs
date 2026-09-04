@@ -45,6 +45,8 @@ namespace DungeonCrawler.World
             loot.lootTable = Resources.Load<LootTable>("Data/Loot/AbyssLootTable");
             loot.minGold = 2;
             loot.maxGold = 5;
+            loot.minEssence = 1;
+            loot.maxEssence = 2;
 
             aliveCount++;
             go.GetComponent<Health>().OnDeath += () => aliveCount--;
