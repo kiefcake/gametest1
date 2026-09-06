@@ -59,7 +59,7 @@ namespace DungeonCrawler.Loot
                 if (essence != null && amount > 0)
                 {
                     essence.Add(amount);
-                    DamageNumber.SpawnGold(transform.position + Vector3.up * 2f, amount); // reuses the gold-style floating number; distinct icon/color is a follow-up
+                    DamageNumber.SpawnEssence(transform.position + Vector3.up * 2f, amount);
                 }
             }
 

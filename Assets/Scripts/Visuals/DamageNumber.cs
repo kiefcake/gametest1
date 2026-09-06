@@ -29,14 +29,23 @@ namespace DungeonCrawler.Visuals
         public static void Spawn(Vector3 worldPos, float amount, bool isHeal)
         {
             Build(worldPos, (isHeal ? "+" : "") + Mathf.RoundToInt(amount),
-                isHeal ? new Color(0.35f, 0.9f, 0.35f) : new Color(1f, 0.85f, 0.2f));
+                isHeal ? DungeonUITheme.Heal : DungeonUITheme.DamageDealt);
         }
 
         // Distinct from Spawn's damage/heal coloring so a gold pickup doesn't read as
         // "you just healed" -- used by LootDropper on enemy kills.
         public static void SpawnGold(Vector3 worldPos, int amount)
         {
-            Build(worldPos, $"+{amount}g", new Color(1f, 0.84f, 0.1f));
+            Build(worldPos, $"+{amount}g", DungeonUITheme.Gold);
+        }
+
+        // Essence (the ability-rank currency, see Abilities/Essence.cs) used to reuse
+        // SpawnGold's number so it wouldn't read as a heal -- but that made it visually
+        // indistinguishable from an actual gold drop. Pale blurple instead, matching the
+        // Rank & Rune panel's own Essence color.
+        public static void SpawnEssence(Vector3 worldPos, int amount)
+        {
+            Build(worldPos, $"+{amount}", DungeonUITheme.RankEssence);
         }
 
         private static void Build(Vector3 worldPos, string content, Color color)

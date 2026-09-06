@@ -5,6 +5,7 @@ using DungeonCrawler.Abilities;
 using DungeonCrawler.Classes;
 using DungeonCrawler.Core;
 using DungeonCrawler.Loot;
+using DungeonCrawler.Visuals;
 using DungeonCrawler.World;
 
 namespace DungeonCrawler.UI
@@ -13,6 +14,10 @@ namespace DungeonCrawler.UI
     // here is spawned (see DefaultContentFactory/GameBootstrap), and it sidesteps the
     // edit-time-asset-creation timing hazard that broke the loot tables (see
     // Loot/LootTable.cs). GameBootstrap calls Build() once the player exists.
+    //
+    // Visual style follows the "Grimy Little Descent" UI kit handoff: chamfered carved-
+    // stone frames (PanelSpriteFactory.CreateChamferedSprite), one warm ember accent, and
+    // colors pulled from DungeonUITheme rather than one-off local constants.
     public class PlayerHUD : MonoBehaviour
     {
         private PlayerCharacter player;
@@ -25,6 +30,8 @@ namespace DungeonCrawler.UI
         // repainting here (value changed, visual didn't), so this sidesteps the fill-mesh
         // path entirely and just resizes the rect, which can't have that failure mode.
         private RectTransform hpFillRect;
+        private RectTransform hpGhostRect;
+        private Image hpLowOverlay;
         private Text hpLabel;
         private RectTransform mpFillRect;
         private Text mpLabel;
@@ -32,7 +39,16 @@ namespace DungeonCrawler.UI
         private Text downedRecoveryLabel;
         private Text lookAtLabel;
         private Text goldLabel;
+        private Text essenceLabel;
         private const float LookAtRange = 4f; // short -- "what am I about to pick up," not ability targeting range
+
+        // Chip damage leaves this ghost fill at the old HP fraction; it drains down toward
+        // the real value over HpGhostLagSeconds instead of snapping instantly, so a hit
+        // reads as "you just lost this much" rather than just an instant bar-shrink.
+        private float hpGhostFraction = 1f;
+        private const float HpGhostLagSeconds = 0.4f;
+        private const float LowHpThreshold = 0.25f;
+        private float lowHpPulseTimer;
 
         private readonly List<AbilitySlotUI> abilitySlots = new List<AbilitySlotUI>();
         private RectTransform buffBarRoot;
@@ -47,16 +63,16 @@ namespace DungeonCrawler.UI
             public Text label;
         }
 
-        private static readonly Color ReadyColor = new Color(0.16f, 0.18f, 0.24f, 0.92f);
-        private static readonly Color NotReadyColor = new Color(0.07f, 0.07f, 0.08f, 0.92f);
-        private static readonly Color HpColor = new Color(0.78f, 0.18f, 0.18f);
-        private static readonly Color MpColor = new Color(0.2f, 0.45f, 0.85f);
+        private static readonly Color ReadyColor = DungeonUITheme.EmberFill;
+        private static readonly Color NotReadyColor = new Color(0.1f, 0.11f, 0.16f, 0.95f);
+        private static readonly Color LockedColor = new Color(0.1f, 0.09f, 0.14f, 0.85f);
 
         private class AbilitySlotUI
         {
             public AbilityData ability;
             public Image background;
             public Image cooldownOverlay;
+            public Image[] pips;
         }
 
         public static PlayerHUD Build(PlayerCharacter player, PlayerWallet wallet = null, DownedRecovery downedRecovery = null)
@@ -101,8 +117,30 @@ namespace DungeonCrawler.UI
                 screenFlash.color = c;
             }
 
-            SetFillFraction(hpFillRect, Mathf.Clamp01(SafeDiv(player.health.CurrentHP, player.health.maxHP)));
+            float hpFrac = Mathf.Clamp01(SafeDiv(player.health.CurrentHP, player.health.maxHP));
+            SetFillFraction(hpFillRect, hpFrac);
+            hpGhostFraction = hpFrac < hpGhostFraction
+                ? Mathf.Max(hpFrac, hpGhostFraction - Time.deltaTime / HpGhostLagSeconds)
+                : hpFrac;
+            SetFillFraction(hpGhostRect, hpGhostFraction);
             hpLabel.text = $"HP {player.health.CurrentHP:0}/{player.health.maxHP:0}";
+
+            if (hpFrac <= LowHpThreshold && hpFrac > 0f)
+            {
+                lowHpPulseTimer += Time.deltaTime;
+                float period = hpFrac <= LowHpThreshold * 0.4f ? 0.39f : 0.78f; // panics harder below 10%
+                float phase = Mathf.PingPong(lowHpPulseTimer / period, 1f);
+                var c = hpLowOverlay.color;
+                c.a = Mathf.Lerp(0.10f, 0.60f, phase);
+                hpLowOverlay.color = c;
+            }
+            else
+            {
+                lowHpPulseTimer = 0f;
+                var c = hpLowOverlay.color;
+                c.a = 0f;
+                hpLowOverlay.color = c;
+            }
 
             if (player.mana != null)
             {
@@ -120,7 +158,11 @@ namespace DungeonCrawler.UI
 
                 bool canAfford = player.mana == null || player.mana.CurrentMP >= slotUI.ability.manaCost;
                 bool locked = slotUI.ability.slot == AbilitySlot.Ultimate && !player.abilityCaster.ultimateUnlocked;
-                slotUI.background.color = (remaining <= 0f && canAfford && !locked) ? ReadyColor : NotReadyColor;
+                slotUI.background.color = locked ? LockedColor : (remaining <= 0f && canAfford) ? ReadyColor : NotReadyColor;
+
+                int rank = player.abilityCaster.GetRank(slotUI.ability);
+                for (int p = 0; p < slotUI.pips.Length; p++)
+                    slotUI.pips[p].color = p < rank ? DungeonUITheme.Ember : new Color(0.29f, 0.21f, 0.15f);
             }
 
             downedBanner.gameObject.SetActive(player.health.IsDowned);
@@ -131,6 +173,7 @@ namespace DungeonCrawler.UI
                     downedRecoveryLabel.text = $"Returning to Hub in {Mathf.CeilToInt(downedRecovery.SecondsRemaining)}s";
             }
             if (goldLabel != null && wallet != null) goldLabel.text = $"Gold: {wallet.Gold}";
+            if (essenceLabel != null && player.essence != null) essenceLabel.text = $"Essence: {player.essence.Amount}";
             UpdateLookAtLabel();
             UpdateBuffBar();
         }
@@ -262,7 +305,8 @@ namespace DungeonCrawler.UI
 
         private void BuildBuffBar(Transform parent)
         {
-            buffBarRoot = MakeRect("BuffBar", parent, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -112), new Vector2(700, 24));
+            float y = buffBarPositionOverride ?? -112f;
+            buffBarRoot = MakeRect("BuffBar", parent, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, y), new Vector2(700, 24));
         }
 
         private void BuildBuffSlot(int index)
@@ -312,28 +356,50 @@ namespace DungeonCrawler.UI
         private void BuildResourceBars(Transform parent)
         {
             var hpRoot = MakeRect("HPBar", parent, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -20), new Vector2(260, 28));
-            hpRoot.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.55f);
-            hpFillRect = BuildFillBar(hpRoot, HpColor);
+            var hpFrame = hpRoot.gameObject.AddComponent<Image>();
+            hpFrame.sprite = PanelSpriteFactory.CreateChamferedSprite(DungeonUITheme.HpBacking, DungeonUITheme.EmberDim, 64, 8, 3);
+            hpFrame.type = Image.Type.Sliced;
+            hpGhostRect = BuildFillBar(hpRoot, DungeonUITheme.HpGhost);
+            hpFillRect = BuildFillBar(hpRoot, DungeonUITheme.HpFill);
+            var hpOverlayRect = MakeRect("LowHpOverlay", hpRoot, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            hpOverlayRect.offsetMin = Vector2.zero;
+            hpOverlayRect.offsetMax = Vector2.zero;
+            hpLowOverlay = hpOverlayRect.gameObject.AddComponent<Image>();
+            hpLowOverlay.color = new Color(DungeonUITheme.HpLowOverlay.r, DungeonUITheme.HpLowOverlay.g, DungeonUITheme.HpLowOverlay.b, 0f);
+            hpLowOverlay.raycastTarget = false;
             hpLabel = BuildLabel(hpRoot, "", 16, TextAnchor.MiddleCenter);
 
             var mpRoot = MakeRect("MPBar", parent, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -54), new Vector2(260, 22));
-            mpRoot.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.55f);
-            mpFillRect = BuildFillBar(mpRoot, MpColor);
+            var mpFrame = mpRoot.gameObject.AddComponent<Image>();
+            mpFrame.sprite = PanelSpriteFactory.CreateChamferedSprite(DungeonUITheme.ManaBacking, DungeonUITheme.Border, 64, 6, 3);
+            mpFrame.type = Image.Type.Sliced;
+            mpFillRect = BuildFillBar(mpRoot, DungeonUITheme.ManaFill);
             mpLabel = BuildLabel(mpRoot, "", 14, TextAnchor.MiddleCenter);
 
             var goldRoot = MakeRect("GoldBar", parent, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -82), new Vector2(260, 22));
             goldRoot.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.55f);
             goldLabel = BuildLabel(goldRoot, "Gold: 0", 14, TextAnchor.MiddleCenter);
-            goldLabel.color = new Color(1f, 0.84f, 0.2f);
+            goldLabel.color = DungeonUITheme.Gold;
+
+            var essenceRoot = MakeRect("EssenceBar", parent, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -110), new Vector2(260, 22));
+            essenceRoot.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.55f);
+            essenceLabel = BuildLabel(essenceRoot, "Essence: 0", 14, TextAnchor.MiddleCenter);
+            essenceLabel.color = DungeonUITheme.RankEssence;
+
+            buffBarPositionOverride = -138f; // moved down to clear the new Essence row
         }
+
+        // Set by BuildResourceBars before BuildBuffBar runs -- keeps the buff bar from
+        // overlapping the new Essence row without hardcoding two separate layout passes.
+        private float? buffBarPositionOverride;
 
         // anchorMin stays (0, 0)/(0, 1) so SetFillFraction can shrink from the right by
         // moving anchorMax.x alone -- see SetFillFraction.
         private RectTransform BuildFillBar(RectTransform parent, Color color)
         {
             var rect = MakeRect("Fill", parent, Vector2.zero, Vector2.one, new Vector2(0f, 0.5f), Vector2.zero, Vector2.zero);
-            rect.offsetMin = new Vector2(2, 2);
-            rect.offsetMax = new Vector2(-2, -2);
+            rect.offsetMin = new Vector2(3, 3);
+            rect.offsetMax = new Vector2(-3, -3);
             rect.gameObject.AddComponent<Image>().color = color;
             return rect;
         }
@@ -347,7 +413,7 @@ namespace DungeonCrawler.UI
             text.font = uiFont;
             text.fontSize = fontSize;
             text.alignment = anchor;
-            text.color = Color.white;
+            text.color = DungeonUITheme.TextPrimary;
             text.text = initial;
             return text;
         }
@@ -370,6 +436,8 @@ namespace DungeonCrawler.UI
                     new Vector2(0.5f, 0f), new Vector2(x, 24), new Vector2(slotSize, slotSize));
 
                 var bg = slotRect.gameObject.AddComponent<Image>();
+                bg.sprite = PanelSpriteFactory.CreateChamferedSprite(ReadyColor, DungeonUITheme.EmberDim, 64, 6, 3);
+                bg.type = Image.Type.Sliced;
                 bg.color = ReadyColor;
 
                 var overlayRect = MakeRect("CooldownOverlay", slotRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
@@ -377,7 +445,7 @@ namespace DungeonCrawler.UI
                 overlayRect.offsetMax = Vector2.zero;
                 var overlay = overlayRect.gameObject.AddComponent<Image>();
                 overlay.sprite = WhiteSprite();
-                overlay.color = new Color(0f, 0f, 0f, 0.75f);
+                overlay.color = new Color(0.04f, 0.04f, 0.08f, 0.74f);
                 overlay.type = Image.Type.Filled;
                 overlay.fillMethod = Image.FillMethod.Radial360;
                 overlay.fillOrigin = (int)Image.Origin360.Top;
@@ -394,19 +462,32 @@ namespace DungeonCrawler.UI
                 keyText.color = new Color(1f, 1f, 1f, 0.85f);
                 keyText.text = keyHints[i];
 
+                // Rank pips -- 3 small ticks along the top edge, filled ember per rank
+                // earned (see AbilityCaster.GetRank), matching the Rank & Rune panel's own
+                // pip convention so the two screens read as one system.
+                var pipsRow = MakeRect("Pips", slotRect, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -3), new Vector2(36, 4));
+                var pips = new Image[3];
+                for (int p = 0; p < 3; p++)
+                {
+                    var pipRect = MakeRect($"Pip{p}", pipsRow, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0.5f, 0.5f),
+                        new Vector2(p * 13f, 0), new Vector2(10, 3));
+                    pips[p] = pipRect.gameObject.AddComponent<Image>();
+                    pips[p].color = new Color(0.29f, 0.21f, 0.15f);
+                }
+
                 var nameRect = MakeRect("AbilityName", slotRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
                 nameRect.offsetMin = new Vector2(2, 2);
-                nameRect.offsetMax = new Vector2(-2, 28);
+                nameRect.offsetMax = new Vector2(-2, 24);
                 var nameText = nameRect.gameObject.AddComponent<Text>();
                 nameText.font = uiFont;
                 nameText.fontSize = 12;
                 nameText.alignment = TextAnchor.LowerCenter;
-                nameText.color = Color.white;
+                nameText.color = DungeonUITheme.TextBody;
 
                 var ability = player.abilityCaster.abilities.Find(a => a.slot == slots[i]);
                 nameText.text = ability != null ? ability.abilityName : "--";
 
-                abilitySlots.Add(new AbilitySlotUI { ability = ability, background = bg, cooldownOverlay = overlay });
+                abilitySlots.Add(new AbilitySlotUI { ability = ability, background = bg, cooldownOverlay = overlay, pips = pips });
             }
         }
 
@@ -423,7 +504,7 @@ namespace DungeonCrawler.UI
             hint.fontSize = 13;
             hint.alignment = TextAnchor.MiddleCenter;
             hint.color = new Color(1f, 1f, 1f, 0.6f);
-            hint.text = "Hold LMB: Auto Attack -- Shift: Dash";
+            hint.text = "Hold LMB: Auto Attack -- Shift: Dash -- K: Ranks";
 
             var lookAtRect = MakeRect("LookAtLabel", parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 26), new Vector2(400, 26));
             lookAtLabel = lookAtRect.gameObject.AddComponent<Text>();

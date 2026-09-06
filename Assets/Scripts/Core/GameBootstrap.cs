@@ -151,6 +151,7 @@ namespace DungeonCrawler
 
             PlayerHUD.Build(player, wallet, downedRecovery);
             StatScreenUI.Build(player); // toggle with C
+            AbilityRankUI.Build(player); // toggle with K -- spend Essence on ability ranks/runes
             PauseMenuUI.Build(); // toggle with Escape -- owns cursor lock/timeScale pausing
             DebugTools.Build(player, wallet); // F1-F5 testing hotkeys -- see DebugTools for the list
 
