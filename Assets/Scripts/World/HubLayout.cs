@@ -522,12 +522,16 @@ namespace DungeonCrawler.World
             VillageDecor.BuildBanner(transform, pos + new Vector3(-gateHalf - 0.3f, towerHeight * 0.55f + 1f, 0), new Color(0.65f, 0.2f, 0.8f), 0f);
             VillageDecor.BuildBanner(transform, pos + new Vector3(gateHalf + 0.3f, towerHeight * 0.55f + 1f, 0), new Color(0.65f, 0.2f, 0.8f), 180f);
 
+            // The approach steps above lead up from +Z (stepZ runs 0 to 1.0), but this
+            // trigger used to sit at -Z -- on the far side of the arch from where a player
+            // actually walks up to it, so "Enter the Dungeon" never fired where the portal
+            // visually stood. Centered on the step run instead.
             var triggerGO = new GameObject("GrandPortalTrigger");
             triggerGO.transform.SetParent(transform);
-            triggerGO.transform.position = pos + new Vector3(0, 1f, -1.4f);
+            triggerGO.transform.position = pos + new Vector3(0, 1f, 0.8f);
             var col = triggerGO.AddComponent<BoxCollider>();
             col.isTrigger = true;
-            col.size = new Vector3(gateHalf * 2f, 2.4f, 1.8f);
+            col.size = new Vector3(gateHalf * 2f, 2.4f, 2.4f);
 
             GateInteractable = triggerGO.AddComponent<Interactable>();
             GateInteractable.prompt = "Enter the Dungeon (E)";
@@ -815,8 +819,13 @@ namespace DungeonCrawler.World
             floor.transform.localScale = new Vector3(WingHalfWidth * 2f / 10f, 1f, WingHalfDepth * 2f / 10f);
             SetColor(floor, new Color(0.28f, 0.34f, 0.2f));
 
+            // The tallest hill used to sit at (-6,4) with a 4.5 radius, which (with its own
+            // scattered base rocks reaching up to +0.8 further out) came within 0.05 units
+            // of the west archway's pillar and put loose rocks past it into the gap itself
+            // -- a real "blocked by walls" case, not just visual clutter. Pulled east and
+            // shrunk slightly so its full scatter radius clears the pillar with real margin.
             Color grass = new Color(0.32f, 0.42f, 0.22f);
-            VillageDecor.BuildHill(transform, wingCenter + new Vector3(-6f, 0, 4f), 4.5f, 2.2f, grass);
+            VillageDecor.BuildHill(transform, wingCenter + new Vector3(-1f, 0, 4f), 3.5f, 2.2f, grass);
             VillageDecor.BuildHill(transform, wingCenter + new Vector3(6f, 0, -5f), 3.5f, 1.6f, grass);
             VillageDecor.BuildHill(transform, wingCenter + new Vector3(3f, 0, 6f), 2.6f, 1.2f, grass);
 
@@ -825,7 +834,7 @@ namespace DungeonCrawler.World
             VillageDecor.BuildRockCluster(transform, wingCenter + new Vector3(-8f, 0, -2f), 1.1f);
 
             VillageDecor.BuildStatue(transform, wingCenter + new Vector3(0f, 0, 0f), 200f, StatueStoneColor);
-            VillageDecor.BuildStatue(transform, wingCenter + new Vector3(-6f, 2.2f, 4f), 160f, StatueStoneColor); // atop the tallest hill, a lookout guardian
+            VillageDecor.BuildStatue(transform, wingCenter + new Vector3(-1f, 2.2f, 4f), 160f, StatueStoneColor); // atop the tallest hill, a lookout guardian
 
             BuildLantern(wingCenter + new Vector3(0f, 1.4f, -1.5f));
         }

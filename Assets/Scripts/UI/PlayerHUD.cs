@@ -101,6 +101,15 @@ namespace DungeonCrawler.UI
         private float screenFlashTimer;
         private const float ScreenFlashDuration = 0.25f;
 
+        // Blind used to only shrink EnemyTargeting's raycast/fallback range (see that
+        // class) -- a real mechanical effect, but with zero visible feedback, so it read
+        // as "dead code" even though it wasn't. This is the actual "you got blinded" tell:
+        // a full-screen dark overlay whose opacity tracks StatusEffectController's Blind
+        // magnitude directly, which now accumulates with repeated hits instead of just
+        // refreshing (see ApplyEffect) -- so it visibly darkens further the more you're hit
+        // while it's active, and fades as the effect's duration runs out.
+        private Image blindOverlay;
+
         private void OnPlayerDamaged(float amount)
         {
             screenFlashTimer = ScreenFlashDuration;
@@ -147,6 +156,15 @@ namespace DungeonCrawler.UI
             {
                 SetFillFraction(mpFillRect, Mathf.Clamp01(SafeDiv(player.mana.CurrentMP, player.mana.maxMP)));
                 mpLabel.text = $"MP {player.mana.CurrentMP:0}/{player.mana.maxMP:0}";
+            }
+
+            if (player.statusController != null)
+            {
+                float blindMag = player.statusController.HasEffect(StatusEffectType.Blind)
+                    ? player.statusController.GetMagnitude(StatusEffectType.Blind) : 0f;
+                var c = blindOverlay.color;
+                c.a = Mathf.Lerp(c.a, blindMag * 0.85f, Time.deltaTime * 6f); // never fully opaque -- darkened, not blacked out
+                blindOverlay.color = c;
             }
 
             foreach (var slotUI in abilitySlots)
@@ -350,6 +368,13 @@ namespace DungeonCrawler.UI
             screenFlash = rect.gameObject.AddComponent<Image>();
             screenFlash.color = new Color(0.8f, 0f, 0f, 0f);
             screenFlash.raycastTarget = false;
+
+            var blindRect = MakeRect("BlindOverlay", parent, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+            blindRect.offsetMin = Vector2.zero;
+            blindRect.offsetMax = Vector2.zero;
+            blindOverlay = blindRect.gameObject.AddComponent<Image>();
+            blindOverlay.color = new Color(0f, 0f, 0f, 0f);
+            blindOverlay.raycastTarget = false;
         }
 
         private RectTransform MakeRect(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax,

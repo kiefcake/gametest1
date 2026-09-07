@@ -202,8 +202,12 @@ namespace DungeonCrawler.Enemies
                 for (int i = 0; i < 6; i++)
                 {
                     Vector3 dir = Quaternion.Euler(0, spiralAngle + i * 60f, 0) * Vector3.forward;
+                    // 0.3 per bullet, not a flat 1 -- Blind now accumulates across repeated
+                    // hits (see StatusEffectController.ApplyEffect), so getting caught by
+                    // several Blinding Bullets in the spiral goes from a mild dimming to a
+                    // near-blackout instead of every single hit being an instant full blind.
                     Projectile.Spawn(origin, dir, 7f, 16f, new Color(0.95f, 0.95f, 1f),
-                        appliedEffect: StatusEffectType.Blind, effectDuration: 1.4f, effectMagnitude: 1f);
+                        appliedEffect: StatusEffectType.Blind, effectDuration: 1.4f, effectMagnitude: 0.3f);
                 }
             }
 

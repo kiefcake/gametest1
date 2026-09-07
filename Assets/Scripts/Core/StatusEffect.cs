@@ -58,7 +58,13 @@ namespace DungeonCrawler.Core
             if (existing != null)
             {
                 existing.remainingDuration = Mathf.Max(existing.remainingDuration, duration);
-                existing.magnitude = magnitude;
+                // Blind is the one effect whose MAGNITUDE is meant to escalate with repeated
+                // hits ("the more they're hit, the blinder they get") rather than simply
+                // refresh to the new application's value like every other status -- capped
+                // at 1 (screen fully dark) rather than growing unbounded.
+                existing.magnitude = type == StatusEffectType.Blind
+                    ? Mathf.Min(1f, existing.magnitude + magnitude)
+                    : magnitude;
             }
             else
             {

@@ -27,9 +27,14 @@ namespace DungeonCrawler.World
     // default (0,0,0).
     public class DungeonLayout : MonoBehaviour
     {
-        public float roomWidth = 28f;
-        public float roomDepth = 28f;
-        public float circularRoomRadius = 15f;
+        // Bumped up across the board (28->38 footprint, 3->6 ceiling) -- the old 3-unit
+        // ceiling sat below several real boss meshes (Swamp Warden alone is 4.4 tall) and
+        // their health bars, which is why boss health bars were invisible: BuildCeiling
+        // put an opaque plane right through/above them. See BossRoomWidth/BossRoomWallHeight
+        // below for the boss room's own further bump on top of this.
+        public float roomWidth = 38f;
+        public float roomDepth = 38f;
+        public float circularRoomRadius = 19f;
         public float platformHeight = 3.5f;
         public float platformHalfSize = 3f;
         // Widened from 4 -- generous margin against anything narrowing a passage (the
@@ -37,8 +42,17 @@ namespace DungeonCrawler.World
         // future geometry tweak) actually blocking it shut.
         public float corridorWidth = 6f;
         public float corridorLength = 6f;
-        public float wallHeight = 3f;
+        public float wallHeight = 6f;
         public float wallThickness = 0.5f;
+
+        // Extra width/height ONLY for the boss room, layered on top of roomWidth/wallHeight
+        // right before that one BuildRoom call (see Build()) and restored immediately after.
+        // Depth deliberately isn't touched here -- RoomSpacing (roomDepth + corridorLength)
+        // already fixes BossPoint's distance from the Vault room, so growing the boss room's
+        // OWN depth would eat into the connecting corridor. Width and height have no such
+        // spacing constraint, so the boss arena can go bigger in both without touching them.
+        private const float BossRoomWidth = 54f;
+        private const float BossRoomWallHeight = 10f;
 
         public Color entryFloorColor = new Color(0.14f, 0.14f, 0.18f);
         public Color combatFloorColor = new Color(0.15f, 0.05f, 0.08f);
@@ -187,7 +201,16 @@ namespace DungeonCrawler.World
             if (treasureAlcove) TreasureAlcovePoint = BuildTreasureAlcove(VaultPoint);
             BuildRoomEntryTrigger(VaultPoint, RoomSlot.Vault);
 
+            // Wider and taller than every other room -- a grander arena, and enough
+            // headroom that the tallest bosses (Swamp Warden at 4.4 units) and their health
+            // bars sit well clear of the ceiling. Depth stays at the shared value; see
+            // BossRoomWidth/BossRoomWallHeight's own comment for why.
+            float savedRoomWidth = roomWidth, savedWallHeight = wallHeight;
+            roomWidth = BossRoomWidth;
+            wallHeight = BossRoomWallHeight;
             BuildRoom(BossPoint, bossFloorColor, openNorth: false, openSouth: true, hazardous: true);
+            roomWidth = savedRoomWidth;
+            wallHeight = savedWallHeight;
             BuildRoomEntryTrigger(BossPoint, RoomSlot.Boss);
 
             BuildCorridor((EntryPoint + CombatPoint) / 2f);
