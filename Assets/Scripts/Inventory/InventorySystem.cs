@@ -122,6 +122,19 @@ namespace DungeonCrawler.Inventory
                     player.statusController?.ApplyEffect(effect, item.regenDuration, item.regenPerTick);
                     return true;
 
+                // "Antidote" -- a cleanse in a bottle, same full-debuff strip Priest's
+                // Mending Light already does (see StatusEffectController.CleanseAll).
+                case ItemCategory.CleansePotion:
+                    player.statusController?.CleanseAll();
+                    return true;
+
+                // "Draught of Haste"/"Stone Skin Tonic" -- one temporary status effect,
+                // whichever the item is configured for (item.buffEffect).
+                case ItemCategory.BuffPotion:
+                    if (item.buffEffect == StatusEffectType.None) return false;
+                    player.statusController?.ApplyEffect(item.buffEffect, item.buffDuration, item.buffMagnitude);
+                    return true;
+
                 default:
                     return false;
             }

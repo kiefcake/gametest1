@@ -20,9 +20,14 @@ namespace DungeonCrawler.Inventory
             float baseValue = RarityBaseValue[(int)item.rarity];
 
             // A potion is spent in one use, not carried as a stat stick -- shouldn't fetch
-            // full gear money.
-            if (item.category == ItemCategory.Potion || item.category == ItemCategory.AllStatPotion)
-                baseValue *= 0.5f;
+            // full gear money. Applies to every consumable category, not just the original
+            // two -- MaxStatPotion/RegenPotion/CleansePotion/BuffPotion are exactly as
+            // one-shot as Potion/AllStatPotion, this just didn't get extended when they
+            // were added.
+            bool isConsumable = item.category == ItemCategory.Potion || item.category == ItemCategory.AllStatPotion
+                || item.category == ItemCategory.MaxStatPotion || item.category == ItemCategory.RegenPotion
+                || item.category == ItemCategory.CleansePotion || item.category == ItemCategory.BuffPotion;
+            if (isConsumable) baseValue *= 0.5f;
 
             return Mathf.Max(1, Mathf.RoundToInt(baseValue));
         }

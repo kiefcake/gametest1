@@ -49,6 +49,8 @@ namespace DungeonCrawler.Classes
             float speed = player.Stats != null ? Mathf.Max(1f, player.Stats.GetValue(Core.StatType.SPD)) : 5f;
             if (player.statusController != null && player.statusController.HasEffect(Core.StatusEffectType.Slow))
                 speed *= 1f - player.statusController.GetMagnitude(Core.StatusEffectType.Slow);
+            if (player.statusController != null && player.statusController.HasEffect(Core.StatusEffectType.Haste))
+                speed *= 1f + player.statusController.GetMagnitude(Core.StatusEffectType.Haste);
             Vector3 delta = move * speed * Time.deltaTime;
 
             if (controller != null)

@@ -26,6 +26,7 @@ namespace DungeonCrawler.Core
         Slow,  // reduced movement speed
         Regenerating,    // heal over time (HP) -- RegenPotion items, e.g. "Vial of Renewal"
         ManaRegenerating, // restore over time (MP) -- RegenPotion items, e.g. "Mana Bead"
+        Haste, // increased movement speed -- BuffPotion items, e.g. "Draught of Haste"
     }
 
     [System.Serializable]

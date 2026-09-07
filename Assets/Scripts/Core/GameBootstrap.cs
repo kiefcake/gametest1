@@ -169,6 +169,15 @@ namespace DungeonCrawler
             EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.ManaBead, 0.3f);
             EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.MaxLifePotion, 0.15f);
 
+            // Antidote/Draught of Haste/Stone Skin Tonic -- same tier as Vial of Renewal/
+            // Mana Bead, common enough to find while exploring, more common still off bosses.
+            EnsureItemDrop(trashTable, Inventory.AdvancedPotionFactory.Antidote, 0.05f);
+            EnsureItemDrop(trashTable, Inventory.AdvancedPotionFactory.DraughtOfHaste, 0.04f);
+            EnsureItemDrop(trashTable, Inventory.AdvancedPotionFactory.StoneSkinTonic, 0.04f);
+            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.Antidote, 0.25f);
+            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.DraughtOfHaste, 0.25f);
+            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.StoneSkinTonic, 0.25f);
+
             PlayerHUD.Build(player, wallet, downedRecovery);
             StatScreenUI.Build(player); // toggle with C
             AbilityRankUI.Build(player); // toggle with K -- spend Essence on ability ranks/runes
@@ -196,6 +205,7 @@ namespace DungeonCrawler
                 Stock(pool, "DEF Potion", 20), Stock(pool, "SPD Potion", 20), Stock(pool, "DEX Potion", 20),
                 Stock(pool, "VIT Potion", 20), Stock(pool, "WIS Potion", 20),
                 Stock(pool, "Vial of Renewal", 35), Stock(pool, "Mana Bead", 30),
+                Stock(pool, "Antidote", 40), Stock(pool, "Draught of Haste", 45), Stock(pool, "Stone Skin Tonic", 45),
             };
             var blacksmithStock = new List<ShopStock>
             {

@@ -289,7 +289,8 @@ namespace DungeonCrawler.Inventory
             if (item == null) return;
 
             if (item.category == ItemCategory.Potion || item.category == ItemCategory.AllStatPotion
-                || item.category == ItemCategory.MaxStatPotion || item.category == ItemCategory.RegenPotion)
+                || item.category == ItemCategory.MaxStatPotion || item.category == ItemCategory.RegenPotion
+                || item.category == ItemCategory.CleansePotion || item.category == ItemCategory.BuffPotion)
             {
                 if (inventory.UsePotionAt(index, player))
                     player.RefreshDerivedStats();
