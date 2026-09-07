@@ -29,7 +29,7 @@ namespace DungeonCrawler.Inventory
         public void OnPointerClick(PointerEventData eventData)
         {
             if (belt == null || player == null) return;
-            if (belt.TryQuaff(role, player.Stats)) player.RefreshDerivedStats();
+            if (belt.TryQuaff(role, player)) player.RefreshDerivedStats();
         }
     }
 }

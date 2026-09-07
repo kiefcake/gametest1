@@ -18,4 +18,7 @@ MonoBehaviour:
   primaryStat: 0
   primaryStatBonus: 0
   potionStat: 0
-  description: Fills 1/5 of your maximum HP pool. 5 potions fully max the stat.
+  potionAmount: 35
+  regenPerTick: 8
+  regenDuration: 6
+  description: Instantly restores 35 HP.

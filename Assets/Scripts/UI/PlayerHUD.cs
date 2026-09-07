@@ -199,9 +199,9 @@ namespace DungeonCrawler.UI
             // while downed, same guard PlayerAbilityInput uses for ability casts.
             if (player.potionBelt != null && !player.health.IsDowned)
             {
-                if (Input.GetKeyDown(KeyCode.Z) && player.potionBelt.TryQuaff(PotionBelt.Role.HP, player.Stats))
+                if (Input.GetKeyDown(KeyCode.Z) && player.potionBelt.TryQuaff(PotionBelt.Role.HP, player))
                     player.RefreshDerivedStats();
-                if (Input.GetKeyDown(KeyCode.X) && player.potionBelt.TryQuaff(PotionBelt.Role.MP, player.Stats))
+                if (Input.GetKeyDown(KeyCode.X) && player.potionBelt.TryQuaff(PotionBelt.Role.MP, player))
                     player.RefreshDerivedStats();
             }
 

@@ -288,9 +288,10 @@ namespace DungeonCrawler.Inventory
             var item = inventory.GetAt(index);
             if (item == null) return;
 
-            if (item.category == ItemCategory.Potion || item.category == ItemCategory.AllStatPotion)
+            if (item.category == ItemCategory.Potion || item.category == ItemCategory.AllStatPotion
+                || item.category == ItemCategory.MaxStatPotion || item.category == ItemCategory.RegenPotion)
             {
-                if (inventory.UsePotionAt(index, player.Stats))
+                if (inventory.UsePotionAt(index, player))
                     player.RefreshDerivedStats();
             }
             else if (item.category == ItemCategory.Weapon || item.category == ItemCategory.Armor || item.category == ItemCategory.Ring)

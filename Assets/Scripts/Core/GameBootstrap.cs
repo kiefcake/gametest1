@@ -157,6 +157,18 @@ namespace DungeonCrawler
             EnsureBeltMaterialDrop(Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable"), 0.02f);
             EnsureBeltMaterialDrop(Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable"), 0.5f);
 
+            // Vial of Renewal / Mana Bead are common enough to find in regular chests and
+            // off trash; Potion of Maximum Life (a permanent stat-growth item) is boss/
+            // vault-tier only, matching how rare All-Stat Potion already effectively is by
+            // being Curiosities-only and expensive.
+            var trashTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
+            var bossTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
+            EnsureItemDrop(trashTable, Inventory.AdvancedPotionFactory.VialOfRenewal, 0.06f);
+            EnsureItemDrop(trashTable, Inventory.AdvancedPotionFactory.ManaBead, 0.05f);
+            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.VialOfRenewal, 0.3f);
+            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.ManaBead, 0.3f);
+            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.MaxLifePotion, 0.15f);
+
             PlayerHUD.Build(player, wallet, downedRecovery);
             StatScreenUI.Build(player); // toggle with C
             AbilityRankUI.Build(player); // toggle with K -- spend Essence on ability ranks/runes
@@ -183,6 +195,7 @@ namespace DungeonCrawler
                 Stock(pool, "HP Potion", 20), Stock(pool, "MP Potion", 20), Stock(pool, "ATT Potion", 20),
                 Stock(pool, "DEF Potion", 20), Stock(pool, "SPD Potion", 20), Stock(pool, "DEX Potion", 20),
                 Stock(pool, "VIT Potion", 20), Stock(pool, "WIS Potion", 20),
+                Stock(pool, "Vial of Renewal", 35), Stock(pool, "Mana Bead", 30),
             };
             var blacksmithStock = new List<ShopStock>
             {
@@ -192,6 +205,7 @@ namespace DungeonCrawler
             var curiosityStock = new List<ShopStock>
             {
                 Stock(pool, "All-Stat Potion", 140),
+                Stock(pool, "Potion of Maximum Life", 220),
                 new ShopStock { item = Inventory.RingFactory.CreateVitalityBand(), price = 160 },
                 new ShopStock { item = Inventory.RingFactory.CreatePowerSignet(), price = 260 },
             };
@@ -700,6 +714,17 @@ namespace DungeonCrawler
             var material = Inventory.BeltMaterialFactory.EmberCore;
             if (table.entries.Exists(e => e.item == material)) return;
             table.entries.Add(new Loot.LootEntry { item = material, dropChance = dropChance });
+        }
+
+        // Same idempotent injection as EnsureBeltMaterialDrop, for the 3 new potion types
+        // added alongside the HP/MP Potion rework (see ItemData/InventorySystem) -- they
+        // have no hand-authored .asset file, so they need to be added to the shared loot
+        // table in code to be findable in chests/off bosses at all.
+        private static void EnsureItemDrop(Loot.LootTable table, Inventory.ItemData item, float dropChance)
+        {
+            if (table == null || item == null) return;
+            if (table.entries.Exists(e => e.item == item)) return;
+            table.entries.Add(new Loot.LootEntry { item = item, dropChance = dropChance });
         }
 
         // A single guaranteed item, pulled the same way SpawnVaultLoot resolves its pool --

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using DungeonCrawler.Classes;
 using DungeonCrawler.Core;
 
 namespace DungeonCrawler.Inventory
@@ -74,25 +75,56 @@ namespace DungeonCrawler.Inventory
 
         public int SlotCount => slots.Length;
 
-        // Consumes a potion at a slot and applies it to the given StatBlock.
-        // Returns false if the slot is empty, not a potion, or the stat is already maxed.
-        public bool UsePotionAt(int index, StatBlock stats)
+        // Consumes a potion at a slot and applies it to the given player.
+        // Returns false if the slot is empty, not a potion, or (MaxStatPotion only) both
+        // stats are already maxed.
+        public bool UsePotionAt(int index, PlayerCharacter player)
         {
             var item = GetAt(index);
-            if (!ApplyPotionEffect(item, stats)) return false;
+            if (!ApplyPotionEffect(item, player)) return false;
             RemoveAt(index);
             return true;
         }
 
         // Shared with PotionBelt.TryQuaff so a belt charge and a grid potion apply the
-        // exact same effect (including failing silently once the stat's already maxed --
-        // see StatBlock.ApplyPotion) without duplicating the category/potionStat branch.
-        public static bool ApplyPotionEffect(ItemData item, StatBlock stats)
+        // exact same effect without duplicating the category/potionStat branch.
+        //
+        // Potion: instant flat HP/MP restore (item.potionAmount). AllStatPotion: permanent
+        // +1/5 to every one of the 8 stats. MaxStatPotion ("Potion of Maximum Life"):
+        // permanent +1/5 to HP and MP only, same underlying StatBlock.ApplyPotion 5-potion
+        // cap as AllStatPotion, just scoped to two stats instead of eight. RegenPotion:
+        // heal-over-time (HP) or restore-over-time (MP) depending on potionStat, ticked by
+        // StatusEffectController the same cadence as Poison/Bleed -- covers both "potions
+        // that heal over time" and "mana beads" as one category.
+        public static bool ApplyPotionEffect(ItemData item, PlayerCharacter player)
         {
-            if (item == null || stats == null) return false;
-            if (item.category == ItemCategory.Potion) return stats.ApplyPotion(item.potionStat);
-            if (item.category == ItemCategory.AllStatPotion) { stats.ApplyAllStatPotion(); return true; }
-            return false;
+            if (item == null || player == null) return false;
+            switch (item.category)
+            {
+                case ItemCategory.Potion:
+                    if (item.potionStat == StatType.HP) { player.health?.Heal(item.potionAmount); return true; }
+                    if (item.potionStat == StatType.MP) { player.mana?.Regen(item.potionAmount); return true; }
+                    return false;
+
+                case ItemCategory.AllStatPotion:
+                    player.Stats?.ApplyAllStatPotion();
+                    return true;
+
+                case ItemCategory.MaxStatPotion:
+                    // Caller refreshes derived stats after a successful use, same as it
+                    // already does for AllStatPotion -- see InventoryUI.OnSlotClicked.
+                    bool hpGrew = player.Stats != null && player.Stats.ApplyPotion(StatType.HP);
+                    bool mpGrew = player.Stats != null && player.Stats.ApplyPotion(StatType.MP);
+                    return hpGrew || mpGrew;
+
+                case ItemCategory.RegenPotion:
+                    var effect = item.potionStat == StatType.MP ? StatusEffectType.ManaRegenerating : StatusEffectType.Regenerating;
+                    player.statusController?.ApplyEffect(effect, item.regenDuration, item.regenPerTick);
+                    return true;
+
+                default:
+                    return false;
+            }
         }
 
         // Reference-equality count/removal -- upgrade materials are either a real asset

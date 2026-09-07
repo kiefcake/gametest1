@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using DungeonCrawler.Classes;
 using DungeonCrawler.Core;
 
 namespace DungeonCrawler.Inventory
@@ -59,13 +60,16 @@ namespace DungeonCrawler.Inventory
 
         // Z/X (or clicking the slot directly) -- drains one charge and applies the exact
         // same effect InventorySystem.UsePotionAt would via the shared static helper, so a
-        // belt potion and a grid potion behave identically, including failing silently
-        // once the stat's already maxed at 5/5 (see StatBlock.ApplyPotion) -- the charge
-        // is NOT spent in that case, so a maxed stat doesn't quietly drain the belt.
-        public bool TryQuaff(Role role, StatBlock stats)
+        // belt potion and a grid potion behave identically. The HP/MP slots are now an
+        // instant flat heal (see ItemData.potionAmount) rather than the old permanent
+        // max-stat growth, so Z/X reads as the "quick relief mid-fight" quaff it was
+        // always meant to be; only the All-Stat slot still fails silently once every stat
+        // is maxed (see StatBlock.ApplyPotion) -- the charge is NOT spent in that case, so
+        // a maxed run doesn't quietly drain the belt.
+        public bool TryQuaff(Role role, PlayerCharacter player)
         {
             if (counts[(int)role] <= 0) return false;
-            if (!InventorySystem.ApplyPotionEffect(RoleProxyItem(role), stats)) return false;
+            if (!InventorySystem.ApplyPotionEffect(RoleProxyItem(role), player)) return false;
             counts[(int)role]--;
             OnChanged?.Invoke();
             return true;
@@ -100,6 +104,7 @@ namespace DungeonCrawler.Inventory
                         _hpProxy = ScriptableObject.CreateInstance<ItemData>();
                         _hpProxy.category = ItemCategory.Potion;
                         _hpProxy.potionStat = StatType.HP;
+                        _hpProxy.potionAmount = 35f; // matches the real HP Potion's flat heal
                     }
                     return _hpProxy;
                 case Role.MP:
@@ -108,6 +113,7 @@ namespace DungeonCrawler.Inventory
                         _mpProxy = ScriptableObject.CreateInstance<ItemData>();
                         _mpProxy.category = ItemCategory.Potion;
                         _mpProxy.potionStat = StatType.MP;
+                        _mpProxy.potionAmount = 25f; // matches the real MP Potion's flat restore
                     }
                     return _mpProxy;
                 default:

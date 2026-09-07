@@ -24,6 +24,8 @@ namespace DungeonCrawler.Core
         Empowered,  // increased outgoing damage (self-buff -- e.g. Paladin's Empower)
         Blind, // weakens ranged targeting -- no precise crosshair lock, shrunk fallback range
         Slow,  // reduced movement speed
+        Regenerating,    // heal over time (HP) -- RegenPotion items, e.g. "Vial of Renewal"
+        ManaRegenerating, // restore over time (MP) -- RegenPotion items, e.g. "Mana Bead"
     }
 
     [System.Serializable]
@@ -49,6 +51,12 @@ namespace DungeonCrawler.Core
         private const float DOT_TICK_INTERVAL = 1f;
 
         public IHealth health; // assign on Awake from the owning entity
+        // Only ever non-null for the player (enemies have no Mana component) -- looked up
+        // lazily so this class doesn't need its own Awake() just for this one optional ref.
+        // ManaRegenerating is a no-op wherever it's null, same as any other missing-ref
+        // guard elsewhere in this file.
+        private Mana mana;
+        private bool manaLookedUp;
 
         public void ApplyEffect(StatusEffectType type, float duration, float magnitude)
         {
@@ -121,6 +129,15 @@ namespace DungeonCrawler.Core
                 if (poison != null) health.TakeDamage(poison.magnitude, ignoreDef: true);
                 var bleed = active.Find(e => e.type == StatusEffectType.Bleed);
                 if (bleed != null) health.TakeDamage(bleed.magnitude, ignoreDef: false);
+                var regen = active.Find(e => e.type == StatusEffectType.Regenerating);
+                if (regen != null) health.Heal(regen.magnitude);
+
+                var manaRegen = active.Find(e => e.type == StatusEffectType.ManaRegenerating);
+                if (manaRegen != null)
+                {
+                    if (!manaLookedUp) { mana = GetComponent<Mana>(); manaLookedUp = true; }
+                    mana?.Regen(manaRegen.magnitude);
+                }
             }
         }
 

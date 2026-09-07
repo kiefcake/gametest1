@@ -8,7 +8,12 @@ namespace DungeonCrawler.Inventory
     // middle silently reassigns every value after it (this was caught mid-session: every
     // potion asset has category:2 baked in from when Potion was the 3rd entry, and briefly
     // deserialized as Ring instead once Ring was inserted before it).
-    public enum ItemCategory { Weapon, Armor, Potion, AllStatPotion, Cosmetic, Ring, Material }
+    // MaxStatPotion/RegenPotion appended per the same "always append" rule -- see the
+    // comment above. Potion itself was redefined in place (still value 2, no reassignment
+    // risk) from "permanently raises 1/5 of a stat" to "instantly restores a flat amount"
+    // -- HP/MP Potion are the only two Potion-category items that exist, and both assets
+    // were updated to carry the new potionAmount field alongside the redefinition.
+    public enum ItemCategory { Weapon, Armor, Potion, AllStatPotion, Cosmetic, Ring, Material, MaxStatPotion, RegenPotion }
 
     // RealmEye/RotMG-style rarity tiers, ascending. Purely cosmetic (tooltip label + icon
     // backdrop color, see HoverTooltip callers and IconFactory) -- doesn't affect stats.
@@ -29,8 +34,15 @@ namespace DungeonCrawler.Inventory
         public StatType primaryStat;
         public float primaryStatBonus;
 
-        [Header("Potion (only relevant if category == Potion)")]
+        [Header("Potion (Potion/MaxStatPotion/RegenPotion all use potionStat -- HP or MP)")]
         public StatType potionStat;
+        // Potion: instant flat restore. MaxStatPotion ("Potion of Maximum Life") ignores
+        // this and always grows both HP and MP permanently, one potionsApplied step each.
+        public float potionAmount = 30f;
+        // RegenPotion only: total restored is regenPerTick * (regenDuration / 1s tick),
+        // ticked by StatusEffectController the same cadence as Poison/Bleed.
+        public float regenPerTick = 8f;
+        public float regenDuration = 6f;
 
         [TextArea] public string description;
     }
