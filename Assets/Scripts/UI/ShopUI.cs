@@ -118,8 +118,9 @@ namespace DungeonCrawler.UI
             rowBgSprite = PanelSpriteFactory.CreateChamferedSprite(RowFill, RowBorder, 64, 8, 3);
             buttonSprite = PanelSpriteFactory.CreateChamferedSprite(DungeonUITheme.Surface, DungeonUITheme.BorderBright, 64, 8, 3);
 
-            titleText = MakeLabel(panelRoot.transform, 28, FontStyle.Bold, TextAnchor.MiddleCenter,
+            titleText = MakeLabel(panelRoot.transform, 30, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 1f), new Vector2(0, -36), new Vector2(560, 42), DungeonUITheme.TextPrimary);
+            titleText.font = DungeonUITheme.DisplayFont; // vendor name gets the display face, matching boss/panel-title usage elsewhere
             flavorText = MakeLabel(panelRoot.transform, 15, FontStyle.Italic, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 1f), new Vector2(0, -70), new Vector2(620, 28), DungeonUITheme.TextFaint);
             goldText = MakeLabel(panelRoot.transform, 20, FontStyle.Bold, TextAnchor.MiddleRight,

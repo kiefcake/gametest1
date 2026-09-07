@@ -26,7 +26,8 @@ namespace DungeonCrawler.Inventory
             // were added.
             bool isConsumable = item.category == ItemCategory.Potion || item.category == ItemCategory.AllStatPotion
                 || item.category == ItemCategory.MaxStatPotion || item.category == ItemCategory.RegenPotion
-                || item.category == ItemCategory.CleansePotion || item.category == ItemCategory.BuffPotion;
+                || item.category == ItemCategory.CleansePotion || item.category == ItemCategory.BuffPotion
+                || item.category == ItemCategory.RevivePotion;
             if (isConsumable) baseValue *= 0.5f;
 
             return Mathf.Max(1, Mathf.RoundToInt(baseValue));

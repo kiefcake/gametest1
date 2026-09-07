@@ -21,6 +21,9 @@ namespace DungeonCrawler.Core
         // threshold was locked in around "three bosses" before the Snake Pit existed, and
         // moving the goalpost to four isn't part of just recording that Stheno was beaten.
         private const string SnakePitBossKey = "Progress.SnakePitBossDefeated";
+        // Same deal as SnakePitBossKey above -- tracked for completeness, deliberately not
+        // folded into the locked "first three bosses" HardcoreUnlocked threshold.
+        private const string WraithboundBossKey = "Progress.WraithboundBossDefeated";
         private const string HardcoreUnlockedKey = "Progress.HardcoreUnlocked";
 
         public static bool HardcoreUnlocked => PlayerPrefs.GetInt(HardcoreUnlockedKey, 0) == 1;
@@ -29,6 +32,7 @@ namespace DungeonCrawler.Core
         public static void MarkFrozenCryptBossDefeated() => MarkDefeated(FrozenCryptBossKey);
         public static void MarkSunkenRuinsBossDefeated() => MarkDefeated(SunkenRuinsBossKey);
         public static void MarkSnakePitBossDefeated() => MarkDefeated(SnakePitBossKey);
+        public static void MarkWraithboundBossDefeated() => MarkDefeated(WraithboundBossKey);
 
         private static void MarkDefeated(string key)
         {

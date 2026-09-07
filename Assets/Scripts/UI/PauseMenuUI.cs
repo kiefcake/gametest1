@@ -89,7 +89,7 @@ namespace DungeonCrawler.UI
             titleRect.anchoredPosition = new Vector2(0, 130);
             titleRect.sizeDelta = new Vector2(400, 80);
             var titleText = titleGO.GetComponent<Text>();
-            titleText.font = font;
+            titleText.font = DungeonUITheme.DisplayFont;
             titleText.fontSize = 48;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleCenter;
@@ -168,7 +168,7 @@ namespace DungeonCrawler.UI
             titleRect.anchoredPosition = new Vector2(0, 150);
             titleRect.sizeDelta = new Vector2(400, 60);
             var titleText = titleGO.GetComponent<Text>();
-            titleText.font = font;
+            titleText.font = DungeonUITheme.DisplayFont;
             titleText.fontSize = 36;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleCenter;

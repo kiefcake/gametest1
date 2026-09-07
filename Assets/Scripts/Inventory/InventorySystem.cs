@@ -135,6 +135,16 @@ namespace DungeonCrawler.Inventory
                     player.statusController?.ApplyEffect(item.buffEffect, item.buffDuration, item.buffMagnitude);
                     return true;
 
+                // "Bottled Second Wind" -- only usable while actually downed; a no-op
+                // otherwise (matches every other precondition-gated potion here). Reviving
+                // just flips Health.IsDowned back to false, which DownedRecovery's own
+                // Update() already notices and cleanly stops its countdown from -- no
+                // separate "cancel the recovery timer" call needed.
+                case ItemCategory.RevivePotion:
+                    if (player.health == null || !player.health.IsDowned) return false;
+                    player.health.Revive(item.revivePercent);
+                    return true;
+
                 default:
                     return false;
             }

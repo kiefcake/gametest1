@@ -76,7 +76,7 @@ namespace DungeonCrawler.UI
 
             var titleRect = MakeAnchoredRect(canvasGO.transform, new Vector2(0.5f, 1f), new Vector2(0, -90), new Vector2(800, 100));
             var titleText = titleRect.gameObject.AddComponent<Text>();
-            titleText.font = font;
+            titleText.font = DungeonUITheme.DisplayFont;
             titleText.fontSize = 52;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleCenter;
@@ -201,7 +201,7 @@ namespace DungeonCrawler.UI
             stripeRect.sizeDelta = new Vector2(0, 14);
             stripeGO.GetComponent<Image>().color = opt.color;
 
-            MakeCardText(cardGO.transform, font, opt.name, 30, FontStyle.Bold, DungeonUITheme.TextPrimary, new Vector2(0, -50), new Vector2(width - 40, 50));
+            MakeCardText(cardGO.transform, DungeonUITheme.DisplayFont, opt.name, 32, FontStyle.Bold, DungeonUITheme.TextPrimary, new Vector2(0, -50), new Vector2(width - 40, 50));
             MakeCardText(cardGO.transform, font, opt.role, 16, FontStyle.Bold, opt.color, new Vector2(0, -85), new Vector2(width - 40, 30));
             MakeCardText(cardGO.transform, font, opt.blurb, 15, FontStyle.Normal, DungeonUITheme.TextMuted, new Vector2(0, -160), new Vector2(width - 50, 260));
 

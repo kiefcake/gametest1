@@ -11,7 +11,7 @@ namespace DungeonCrawler.World
     // without duplicating any of that structural code. Add a case here plus an Apply*
     // Palette method and a hazard branch (see BuildRoom/BuildCircularRoom) for each new
     // dungeon theme.
-    public enum DungeonTheme { Abyss, FrozenCrypt, SunkenRuins, SnakePit }
+    public enum DungeonTheme { Abyss, FrozenCrypt, SunkenRuins, SnakePit, WraithboundSanctum }
 
     // A real (if crude) dungeon: five rooms in a line -- Entry, two Combat rooms, a Vault,
     // and the Boss -- joined by corridors, instead of BlockoutRoom's single flat box. Same
@@ -143,6 +143,16 @@ namespace DungeonCrawler.World
                     new RoomInfo("Stheno's Sanctum", "She doesn't guard the temple anymore. She is the temple."),
                 }
             },
+            {
+                DungeonTheme.WraithboundSanctum, new[]
+                {
+                    new RoomInfo("The Grieving Gate", "The names on the archway are worn smooth. Someone kept touching them."),
+                    new RoomInfo("The Hollow Choir", "Armor stands empty in rows, and every suit is facing you."),
+                    new RoomInfo("The Weeping Nave", "Something here still grieves. It wants company."),
+                    new RoomInfo("The Sundered Vault", "Whatever oath this place was sworn on, it broke first."),
+                    new RoomInfo("The Wraithbound Throne", "He was buried sitting up. He never got the memo about resting."),
+                }
+            },
         };
 
         // Set once Build() finishes, if this run happened to roll one -- null on any run
@@ -161,6 +171,7 @@ namespace DungeonCrawler.World
             if (theme == DungeonTheme.FrozenCrypt) ApplyFrozenCryptPalette();
             else if (theme == DungeonTheme.SunkenRuins) ApplySunkenRuinsPalette();
             else if (theme == DungeonTheme.SnakePit) ApplySnakePitPalette();
+            else if (theme == DungeonTheme.WraithboundSanctum) ApplyWraithboundPalette();
 
             EntryPoint = Vector3.zero;
             CombatPoint = new Vector3(0, 0, RoomSpacing);
@@ -296,6 +307,20 @@ namespace DungeonCrawler.World
             corridorFloorColor = new Color(0.28f, 0.2f, 0.11f);
             wallColor = new Color(0.4f, 0.3f, 0.18f);
             ceilingColor = new Color(0.16f, 0.11f, 0.06f);
+        }
+
+        // Deep purple-black stone with a sickly grave-green glow instead of any of the
+        // other four themes' palettes -- a cursed reliquary/crypt, not fire, ice, bog, or
+        // earthy temple.
+        private void ApplyWraithboundPalette()
+        {
+            entryFloorColor = new Color(0.14f, 0.1f, 0.18f);
+            combatFloorColor = new Color(0.1f, 0.06f, 0.14f);
+            vaultFloorColor = new Color(0.16f, 0.12f, 0.18f);
+            bossFloorColor = new Color(0.08f, 0.04f, 0.1f);
+            corridorFloorColor = new Color(0.1f, 0.07f, 0.14f);
+            wallColor = new Color(0.16f, 0.1f, 0.2f);
+            ceilingColor = new Color(0.05f, 0.03f, 0.07f);
         }
 
         private void BuildRoom(Vector3 center, Color floorColor, bool openNorth, bool openSouth, bool hazardous, bool westTunnel = false, bool platform = false, bool platformIsPrimary = false)
@@ -672,12 +697,75 @@ namespace DungeonCrawler.World
                 BuildSnakeGrate(poolPos);
                 BuildSnakeGrate(decorB);
             }
+            else if (theme == DungeonTheme.WraithboundSanctum)
+            {
+                BuildWraithCircle(poolPos, 2.5f);
+                BuildShatteredReliquary(decorA);
+                BuildShatteredReliquary(decorB);
+            }
             else
             {
                 BuildLavaPool(poolPos, 2.5f);
                 BuildBonePile(decorA);
                 BuildBonePile(decorB);
             }
+        }
+
+        // Wraithbound Sanctum's own hazard patch -- a ring of grave-light that Curses
+        // anyone standing in it, same LavaHazard/PortalGlow shape every other dungeon's
+        // patch already uses.
+        private void BuildWraithCircle(Vector3 pos, float radius)
+        {
+            var pool = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pool.name = "WraithCircle";
+            pool.transform.SetParent(transform);
+            pool.transform.position = pos + new Vector3(0, 0.03f, 0);
+            pool.transform.localScale = new Vector3(radius * 2f, 0.03f, radius * 2f);
+            SetColor(pool, new Color(0.35f, 0.15f, 0.4f));
+
+            var glow = pool.AddComponent<PortalGlow>();
+            glow.colorA = new Color(0.2f, 0.06f, 0.25f);
+            glow.colorB = new Color(0.55f, 0.85f, 0.5f);
+            glow.speed = 0.7f;
+
+            var col = pool.GetComponent<Collider>();
+            if (col != null) col.isTrigger = true;
+
+            var hazard = pool.AddComponent<LavaHazard>();
+            hazard.appliedEffect = StatusEffectType.Curse;
+            hazard.effectMagnitude = 0.3f;
+            hazard.effectDuration = 4f;
+        }
+
+        // Wraithbound Sanctum's clutter -- cracked reliquary shards and a broken urn,
+        // instead of another dungeon's bone pile/ice spikes/reeds.
+        private void BuildShatteredReliquary(Vector3 pos)
+        {
+            var stoneColor = new Color(0.3f, 0.26f, 0.34f);
+            int count = Random.Range(3, 6);
+            for (int i = 0; i < count; i++)
+            {
+                var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                shard.name = "ReliquaryShard";
+                var col = shard.GetComponent<Collider>();
+                if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
+                shard.transform.SetParent(transform);
+                Vector3 offset = new Vector3(Random.Range(-0.55f, 0.55f), 0.1f, Random.Range(-0.55f, 0.55f));
+                shard.transform.position = pos + offset;
+                shard.transform.rotation = Quaternion.Euler(Random.Range(-25f, 25f), Random.Range(0f, 360f), Random.Range(-15f, 15f));
+                shard.transform.localScale = new Vector3(Random.Range(0.2f, 0.4f), Random.Range(0.3f, 0.6f), Random.Range(0.15f, 0.3f));
+                SetColor(shard, stoneColor);
+            }
+
+            var urn = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            urn.name = "BrokenUrn";
+            var urnCol = urn.GetComponent<Collider>();
+            if (urnCol != null) Destroy(urnCol);
+            urn.transform.SetParent(transform);
+            urn.transform.position = pos + new Vector3(0.2f, 0.15f, -0.15f);
+            urn.transform.rotation = Quaternion.Euler(18f, Random.Range(0f, 360f), 0f);
+            urn.transform.localScale = new Vector3(0.28f, 0.22f, 0.28f);
+            SetColor(urn, new Color(0.22f, 0.19f, 0.26f));
         }
 
         // Snake Pit's own room fixture in place of a lava pool/ice patch/poison bog -- the

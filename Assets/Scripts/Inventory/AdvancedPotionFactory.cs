@@ -11,7 +11,7 @@ namespace DungeonCrawler.Inventory
     // by GameBootstrap the same way Ember Core already is.
     public static class AdvancedPotionFactory
     {
-        private static ItemData _maxLife, _renewalVial, _manaBead, _antidote, _haste, _stoneSkin;
+        private static ItemData _maxLife, _renewalVial, _manaBead, _antidote, _haste, _stoneSkin, _secondWind;
 
         // Takes over the OLD HP/MP Potion behavior (permanent +1/5 max stat, 5-potion cap)
         // now that plain Potion is an instant flat heal instead -- scoped to HP+MP rather
@@ -130,6 +130,27 @@ namespace DungeonCrawler.Inventory
                     _stoneSkin.description = "-35% damage taken for 8 seconds -- a consumable Fortified for testing tanky moments solo.";
                 }
                 return _stoneSkin;
+            }
+        }
+
+        // The rare, expensive panic button for solo play specifically -- there's no
+        // second player to proximity-revive you (see DownedRecovery), so this is the only
+        // way to come back from a down without the run just failing outright.
+        public static ItemData BottledSecondWind
+        {
+            get
+            {
+                if (_secondWind == null)
+                {
+                    _secondWind = ScriptableObject.CreateInstance<ItemData>();
+                    _secondWind.itemName = "Bottled Second Wind";
+                    _secondWind.category = ItemCategory.RevivePotion;
+                    _secondWind.revivePercent = 0.3f;
+                    _secondWind.rarity = ItemRarity.Legendary;
+                    _secondWind.icon = IconFactory.CreateRingIcon(new Color(0.95f, 0.7f, 0.3f));
+                    _secondWind.description = "Usable only while downed -- revives you at 30% HP instead of waiting out the run-failure timer.";
+                }
+                return _secondWind;
             }
         }
     }

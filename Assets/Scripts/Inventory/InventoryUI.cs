@@ -176,11 +176,11 @@ namespace DungeonCrawler.Inventory
             titleRect.anchoredPosition = new Vector2(0, -14);
             titleRect.sizeDelta = new Vector2(PanelWidth - 40, 30);
             var titleText = titleGO.GetComponent<Text>();
-            titleText.font = font;
-            titleText.fontSize = 22;
+            titleText.font = DungeonUITheme.DisplayFont;
+            titleText.fontSize = 24;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleCenter;
-            titleText.color = Color.white;
+            titleText.color = DungeonUITheme.TextPrimary;
             titleText.text = "INVENTORY (I to close)";
 
             var hintGO = new GameObject("Hint", typeof(RectTransform), typeof(Text));
@@ -290,7 +290,8 @@ namespace DungeonCrawler.Inventory
 
             if (item.category == ItemCategory.Potion || item.category == ItemCategory.AllStatPotion
                 || item.category == ItemCategory.MaxStatPotion || item.category == ItemCategory.RegenPotion
-                || item.category == ItemCategory.CleansePotion || item.category == ItemCategory.BuffPotion)
+                || item.category == ItemCategory.CleansePotion || item.category == ItemCategory.BuffPotion
+                || item.category == ItemCategory.RevivePotion)
             {
                 if (inventory.UsePotionAt(index, player))
                     player.RefreshDerivedStats();

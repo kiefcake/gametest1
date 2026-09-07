@@ -34,7 +34,7 @@ namespace DungeonCrawler.World
             public Vector3[] roamPoints;     // enemies scattered across the open biome
         }
 
-        private enum HazardKind { Lava, Ice, Bog, Venom }
+        private enum HazardKind { Lava, Ice, Bog, Venom, Curse }
 
         // Each zone is 60 (X) x 70 (Z) -- four side by side spans the whole overworld
         // roughly X: -90..150, Z: 0..70, well clear of the hub's own footprint
@@ -88,6 +88,7 @@ namespace DungeonCrawler.World
         public BiomeZone Frostlands { get; private set; }
         public BiomeZone Marshlands { get; private set; }
         public BiomeZone SnakePit { get; private set; }
+        public BiomeZone Reliquary { get; private set; }
 
         private void Awake()
         {
@@ -104,6 +105,11 @@ namespace DungeonCrawler.World
                 new Color(0.28f, 0.34f, 0.2f), new Color(0.14f, 0.2f, 0.12f));
             SnakePit = BuildBiome("The Snake Pit", 120f, new Color(0.36f, 0.28f, 0.14f), HazardKind.Venom,
                 new Color(0.55f, 0.44f, 0.24f), new Color(0.32f, 0.22f, 0.12f));
+            // Continues the established X spacing one zone further east, same reasoning
+            // the Snake Pit's own addition already used -- avoids re-centering and
+            // shifting every other zone's already-tuned camp/hazard/roam coordinates.
+            Reliquary = BuildBiome("The Reliquary", 180f, new Color(0.14f, 0.1f, 0.18f), HazardKind.Curse,
+                new Color(0.22f, 0.16f, 0.26f), new Color(0.1f, 0.06f, 0.14f));
 
             BuildMonument();
             BuildPerimeterWalls();
@@ -217,17 +223,16 @@ namespace DungeonCrawler.World
             dais.transform.localScale = new Vector3(MonumentDaisRadius * 2f, MonumentDaisHeight / 2f, MonumentDaisRadius * 2f);
             SetColor(dais, new Color(0.5f, 0.48f, 0.45f)); // weathered stone
 
-            // A 4-point compass around the dais, one pedestal per camp -- was a 3-point
-            // triangle that quietly left Snake Pit out of the monument entirely (it only
-            // got added as a 4th zone after this was written). Frostlands keeps "straight
-            // ahead" (+Z, literally its own direction from centerX 0); the other three are
-            // now a clean compass layout rather than trying to match their real -X/+X
-            // zone directions exactly, since Marshlands and Snake Pit both sit on the +X
-            // side in reality and can't both point there without overlapping.
+            // A compass ring around the dais, one pedestal per camp -- started as a 3-point
+            // triangle, became a 4-point N/E/S/W compass when Snake Pit was added, and now
+            // gets a 5th pedestal on the NE diagonal for the Reliquary rather than trying
+            // to force a perfect pentagon -- a slightly uneven ring reads fine at this
+            // scale, and it avoids re-deriving every existing pedestal's position.
             BuildMonumentPedestal(new Vector3(-MonumentPedestalRadius, 0, 0), new Color(0.85f, 0.35f, 0.1f));  // Wastes
             BuildMonumentPedestal(new Vector3(0, 0, MonumentPedestalRadius), new Color(0.55f, 0.85f, 1f));     // Frostlands
             BuildMonumentPedestal(new Vector3(MonumentPedestalRadius, 0, 0), new Color(0.3f, 0.85f, 0.5f));    // Marshlands
             BuildMonumentPedestal(new Vector3(0, 0, -MonumentPedestalRadius), new Color(0.65f, 0.35f, 0.8f));  // Snake Pit
+            BuildMonumentPedestal(new Vector3(MonumentPedestalRadius * 0.72f, 0, MonumentPedestalRadius * 0.72f), new Color(0.55f, 0.85f, 0.5f)); // Reliquary
         }
 
         // Small waist-high cube -- no collider concerns beyond the Cube primitive's own
@@ -289,6 +294,14 @@ namespace DungeonCrawler.World
                     effectMag = 4f;
                     effectDur = 4f;
                     break;
+                case HazardKind.Curse:
+                    flat = new Color(0.35f, 0.15f, 0.4f);
+                    glowA = new Color(0.2f, 0.06f, 0.25f);
+                    glowB = new Color(0.55f, 0.85f, 0.5f);
+                    effect = StatusEffectType.Curse;
+                    effectMag = 0.3f;
+                    effectDur = 4f;
+                    break;
                 default:
                     flat = new Color(0.9f, 0.35f, 0.05f);
                     glowA = new Color(0.7f, 0.15f, 0.02f);
@@ -340,9 +353,34 @@ namespace DungeonCrawler.World
                 case HazardKind.Venom:
                     BuildThornbrushCluster(clusterPos);
                     break;
+                case HazardKind.Curse:
+                    BuildGraveShardCluster(clusterPos);
+                    break;
                 default:
                     BuildScorchedRockCluster(clusterPos);
                     break;
+            }
+        }
+
+        // The Reliquary's clutter -- broken headstones and shattered reliquary shards,
+        // matching the dungeon's own cursed-crypt palette rather than reusing any of the
+        // other four zones' clutter.
+        private void BuildGraveShardCluster(Vector3 pos)
+        {
+            var stoneColor = new Color(0.28f, 0.24f, 0.32f);
+            int count = Random.Range(3, 6);
+            for (int i = 0; i < count; i++)
+            {
+                var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                shard.name = "GraveShard";
+                var col = shard.GetComponent<Collider>();
+                if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
+                shard.transform.SetParent(transform);
+                Vector3 offset = new Vector3(Random.Range(-0.6f, 0.6f), 0.15f, Random.Range(-0.6f, 0.6f));
+                shard.transform.position = pos + offset;
+                shard.transform.rotation = Quaternion.Euler(Random.Range(-20f, 20f), Random.Range(0f, 360f), Random.Range(75f, 105f));
+                shard.transform.localScale = new Vector3(Random.Range(0.25f, 0.4f), Random.Range(0.4f, 0.7f), Random.Range(0.08f, 0.15f));
+                SetColor(shard, stoneColor);
             }
         }
 
@@ -545,7 +583,7 @@ namespace DungeonCrawler.World
         // void, not be airtight.
         private void BuildPerimeterWalls()
         {
-            const float minX = -90f, maxX = 150f, minZ = 0f, maxZ = 70f;
+            const float minX = -90f, maxX = 210f, minZ = 0f, maxZ = 70f; // maxX extended for the Reliquary zone at centerX=180
             float width = maxX - minX;
             float depth = maxZ - minZ;
             float centerX = (minX + maxX) / 2f;

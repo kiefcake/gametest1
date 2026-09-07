@@ -9,6 +9,24 @@ namespace DungeonCrawler.Visuals
     // StatScreenUI/CharacterSelectUI each currently do with their own local Color consts.
     public static class DungeonUITheme
     {
+        // The kit's display face -- panel titles, boss/vendor names, class names. Body
+        // text (labels, numbers, descriptions) stays on the project's existing builtin
+        // font everywhere; this is only for the handful of "title" elements per screen,
+        // matching the kit's own "Display · panel titles · boss names · damage crits"
+        // usage note. Falls back to the builtin font if the import hasn't happened yet
+        // (e.g. Unity hasn't focused/reimported since the .ttf was added) so a missing
+        // font asset degrades gracefully instead of null-refing every screen at once.
+        private static Font _displayFont;
+        public static Font DisplayFont
+        {
+            get
+            {
+                if (_displayFont == null)
+                    _displayFont = Resources.Load<Font>("Fonts/GrenzeGotisch") ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                return _displayFont;
+            }
+        }
+
         public static readonly Color Ground = new Color32(0x16, 0x18, 0x26, 0xFF);
         public static readonly Color Surface = new Color32(0x23, 0x25, 0x32, 0xFF);
         public static readonly Color SurfaceRaised = new Color32(0x1B, 0x1D, 0x2B, 0xFF);

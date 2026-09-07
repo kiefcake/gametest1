@@ -78,6 +78,7 @@ namespace DungeonCrawler.World
                 spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
                 spriteAnimator.bobHeight = 0.02f; // barely any bob -- an inanimate practice dummy, not a living creature
                 spriteAnimator.bobSpeed = 1f;
+                spriteAnimator.swayAngle = 0f; // no waddle either -- it's propped on posts, not standing
                 return;
             }
 
@@ -90,6 +91,7 @@ namespace DungeonCrawler.World
             spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.02f;
             spriteAnimator.bobSpeed = 1f;
+            spriteAnimator.swayAngle = 0f;
         }
 
         protected override void HandleDeath()

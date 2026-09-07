@@ -131,7 +131,7 @@ namespace DungeonCrawler.UI
             panelImage.color = Color.white;
 
             var titleText = MakeText(panel.transform, "Title", new Vector2(0.5f, 1f), new Vector2(0, -20), new Vector2(560, 32),
-                font, 22, TextAnchor.MiddleCenter, DungeonUITheme.TextPrimary, "ABILITY RANKS  (K to close)");
+                DungeonUITheme.DisplayFont, 24, TextAnchor.MiddleCenter, DungeonUITheme.TextPrimary, "ABILITY RANKS  (K to close)");
             titleText.fontStyle = FontStyle.Bold;
 
             essenceHeaderText = MakeText(panel.transform, "Essence", new Vector2(0.5f, 1f), new Vector2(0, -52), new Vector2(560, 24),
@@ -170,7 +170,7 @@ namespace DungeonCrawler.UI
             divider.GetComponent<Image>().color = DungeonUITheme.Border;
 
             MakeText(rowRoot.transform, "Name", new Vector2(0f, 1f), new Vector2(4, -14), new Vector2(220, 24),
-                font, 17, TextAnchor.MiddleLeft, DungeonUITheme.TextPrimary, ability.abilityName).fontStyle = FontStyle.Bold;
+                DungeonUITheme.DisplayFont, 18, TextAnchor.MiddleLeft, DungeonUITheme.TextPrimary, ability.abilityName).fontStyle = FontStyle.Bold;
 
             // 3 rank pips, small diamonds (a 45-degree-rotated square) along the row header.
             var pips = new Image[3];
@@ -268,7 +268,7 @@ namespace DungeonCrawler.UI
             button.onClick.AddListener(onPick);
 
             MakeText(cardGO.transform, "Name", new Vector2(0.5f, 1f), new Vector2(0, -10), new Vector2(260, 20),
-                font, 14, TextAnchor.MiddleCenter, DungeonUITheme.TextPrimary, string.IsNullOrEmpty(runeName) ? "--" : runeName).fontStyle = FontStyle.Bold;
+                DungeonUITheme.DisplayFont, 15, TextAnchor.MiddleCenter, DungeonUITheme.TextPrimary, string.IsNullOrEmpty(runeName) ? "--" : runeName).fontStyle = FontStyle.Bold;
 
             var desc = MakeText(cardGO.transform, "Desc", new Vector2(0.5f, 1f), new Vector2(0, -32), new Vector2(260, 64),
                 font, 11, TextAnchor.UpperCenter, DungeonUITheme.TextMuted, runeDesc ?? "");

@@ -13,7 +13,7 @@ namespace DungeonCrawler.Inventory
     // risk) from "permanently raises 1/5 of a stat" to "instantly restores a flat amount"
     // -- HP/MP Potion are the only two Potion-category items that exist, and both assets
     // were updated to carry the new potionAmount field alongside the redefinition.
-    public enum ItemCategory { Weapon, Armor, Potion, AllStatPotion, Cosmetic, Ring, Material, MaxStatPotion, RegenPotion, CleansePotion, BuffPotion }
+    public enum ItemCategory { Weapon, Armor, Potion, AllStatPotion, Cosmetic, Ring, Material, MaxStatPotion, RegenPotion, CleansePotion, BuffPotion, RevivePotion }
 
     // RealmEye/RotMG-style rarity tiers, ascending. Purely cosmetic (tooltip label + icon
     // backdrop color, see HoverTooltip callers and IconFactory) -- doesn't affect stats.
@@ -48,6 +48,11 @@ namespace DungeonCrawler.Inventory
         public StatusEffectType buffEffect = StatusEffectType.None;
         public float buffDuration = 5f;
         public float buffMagnitude = 0.3f;
+
+        // RevivePotion only -- fraction of max HP to revive at. Usable ONLY while downed
+        // (see InventorySystem.ApplyPotionEffect); a no-op otherwise, same as any other
+        // potion whose precondition isn't met (e.g. MaxStatPotion at the 5-potion cap).
+        public float revivePercent = 0.3f;
 
         [TextArea] public string description;
     }

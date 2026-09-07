@@ -42,7 +42,7 @@ namespace DungeonCrawler
         // leaving via any camp portal destroyed the whole OpenWorld GameObject including
         // the OTHER two already-earned portals, forcing a full re-clear of biomes the
         // player had already finished.
-        private bool wastesCleared, frostlandsCleared, marshlandsCleared, snakePitZoneCleared;
+        private bool wastesCleared, frostlandsCleared, marshlandsCleared, snakePitZoneCleared, reliquaryZoneCleared;
 
         private void Start()
         {
@@ -57,7 +57,7 @@ namespace DungeonCrawler
         private void BeginRun(TestClass chosenClass)
         {
             classToTest = chosenClass;
-            wastesCleared = frostlandsCleared = marshlandsCleared = snakePitZoneCleared = false;
+            wastesCleared = frostlandsCleared = marshlandsCleared = snakePitZoneCleared = reliquaryZoneCleared = false;
 
             var hubGO = new GameObject("Hub");
             hub = hubGO.AddComponent<HubLayout>();
@@ -178,6 +178,10 @@ namespace DungeonCrawler
             EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.DraughtOfHaste, 0.25f);
             EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.StoneSkinTonic, 0.25f);
 
+            // Bottled Second Wind -- Legendary-rare, boss-only, no trash-table entry at all.
+            // A solo panic button should be a real find, not something you casually stock up on.
+            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.BottledSecondWind, 0.06f);
+
             PlayerHUD.Build(player, wallet, downedRecovery);
             StatScreenUI.Build(player); // toggle with C
             AbilityRankUI.Build(player); // toggle with K -- spend Essence on ability ranks/runes
@@ -216,6 +220,7 @@ namespace DungeonCrawler
             {
                 Stock(pool, "All-Stat Potion", 140),
                 Stock(pool, "Potion of Maximum Life", 220),
+                Stock(pool, "Bottled Second Wind", 450),
                 new ShopStock { item = Inventory.RingFactory.CreateVitalityBand(), price = 160 },
                 new ShopStock { item = Inventory.RingFactory.CreatePowerSignet(), price = 260 },
             };
@@ -345,13 +350,15 @@ namespace DungeonCrawler
             PopulateFrostlands(world.Frostlands);
             PopulateMarshlands(world.Marshlands);
             PopulateSnakePitZone(world.SnakePit);
+            PopulateReliquary(world.Reliquary);
 
             // RotMG's Oryx's Sanctuary inspiration -- cleared camps (runes) light the
             // shared monument and unlock a bonus pull on top of each camp's own
-            // dungeon-unlock payoff. Now requires all four camps (the monument itself
-            // grew a 4th pedestal for Snake Pit to match, see OpenWorldLayout.BuildMonument)
-            // -- originally gated on three, back before the Snake Pit zone existed.
-            if (wastesCleared && frostlandsCleared && marshlandsCleared && snakePitZoneCleared)
+            // dungeon-unlock payoff. Now requires all five camps (the monument itself
+            // grew a 5th pedestal for the Reliquary to match, see
+            // OpenWorldLayout.BuildMonument) -- originally gated on three, back before
+            // the Snake Pit and Reliquary zones existed.
+            if (wastesCleared && frostlandsCleared && marshlandsCleared && snakePitZoneCleared && reliquaryZoneCleared)
             {
                 SpawnMonumentReward(world.MonumentPoint);
             }
@@ -439,6 +446,28 @@ namespace DungeonCrawler
                 () => { snakePitZoneCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterSnakePit); });
         }
 
+        // Reliquary zone trash/guards alternate Wraith Knights and Specter Casters -- the
+        // camp's own chief is a scaled-up Wraith Knight; killing it opens a portal to the
+        // Wraithbound Sanctum.
+        private void PopulateReliquary(OpenWorldLayout.BiomeZone zone)
+        {
+            if (reliquaryZoneCleared)
+            {
+                BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterWraithboundSanctum);
+                return;
+            }
+
+            for (int i = 0; i < zone.roamPoints.Length; i++)
+            {
+                if (i % 2 == 0) SpawnWraithKnight(zone.roamPoints[i]);
+                else SpawnSpecterCaster(zone.roamPoints[i]);
+            }
+            foreach (var p in zone.guardPoints) SpawnWraithKnight(p);
+
+            SpawnBanditMiniboss<WraithKnightChief>(zone.minibossPoint, 400f, 1.8f,
+                () => { reliquaryZoneCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterWraithboundSanctum); });
+        }
+
         // A single generic "bandit chief" builder shared by all three biomes -- same
         // Health/StatusEffectController/AggroController/LootDropper wiring the SpawnImp-
         // family helpers below already use, just scaled up and handed a death callback
@@ -488,6 +517,10 @@ namespace DungeonCrawler
                 // purple/gold explicitly now, matching Stheno's own palette rather than
                 // coincidentally landing on a similar color via the unrelated fallback.
                 "The Snake Pit" => new Color(0.55f, 0.2f, 0.7f),
+                // Matches the Reliquary hazard/monument palette (grave-green over deep
+                // purple-black) rather than falling through to the generic default, same
+                // rationale as the Snake Pit case just above.
+                "The Reliquary" => new Color(0.4f, 0.75f, 0.5f),
                 _ => new Color(0.6f, 0.15f, 0.75f),
             };
             Color glowA = new Color(portalColor.r * 0.7f, portalColor.g * 0.7f, portalColor.b * 0.7f);
@@ -682,6 +715,46 @@ namespace DungeonCrawler
                 SpawnSthenoBoss(layout.BossPoint);
 
                 BuildBossExitGate(layout.BossPoint + new Vector3(-7f, 0, 7f), "the Snake Pit");
+            }
+
+            BuildReturnGate(layout.EntryPoint);
+        }
+
+        // Same shape as the other four Enter*Dungeon methods -- shared DungeonLayout
+        // generator (World.DungeonTheme.WraithboundSanctum), Wraith Knights/Specter
+        // Casters instead of whichever theme's usual trash, the Sundered Lord instead of
+        // the usual boss.
+        private void EnterWraithboundSanctum()
+        {
+            Debug.Log("[Bootstrap] EnterWraithboundSanctum() called");
+            var layout = PrepareDungeonRoot("WraithboundSanctum", DungeonTheme.WraithboundSanctum, new Color(0.08f, 0.05f, 0.1f));
+
+            if (spawnAbyssEncounter)
+            {
+                SpawnWraithKnight(layout.CombatPoint + new Vector3(3, 0, 2));
+                SpawnWraithKnight(layout.CombatPoint + new Vector3(-3, 0, 2));
+                SpawnSpecterCaster(layout.CombatPoint + new Vector3(5f, 0, -3f));
+                SpawnSpecterCaster(layout.CombatPoint + new Vector3(-5f, 0, -3f));
+                SpawnSpecterCaster(layout.CombatPlatformPoint);
+
+                SpawnWraithKnight(layout.Combat2Point + new Vector3(3.5f, 0, 2f));
+                SpawnWraithKnight(layout.Combat2Point + new Vector3(-3.5f, 0, -1f));
+                SpawnSpecterCaster(layout.Combat2Point + new Vector3(-2f, 0, -6));
+                SpawnSpecterCaster(layout.Combat2Point + new Vector3(2f, 0, -6));
+                SpawnWraithKnight(layout.Combat2Point + new Vector3(6f, 0, 0));
+                SpawnSpecterCaster(layout.Combat2PlatformPoint);
+
+                SpawnWraithKnight(layout.TunnelPoint + new Vector3(-1.5f, 0, 1.5f));
+                SpawnWraithKnight(layout.TunnelPoint + new Vector3(1.5f, 0, -1.5f));
+                SpawnSpecterCaster(layout.TunnelPoint + new Vector3(0, 0, -2f));
+                SpawnTunnelLoot(layout.TunnelPoint + new Vector3(0, 0, 3f));
+
+                SpawnVaultLoot(layout.VaultPoint);
+                if (layout.TreasureAlcovePoint.HasValue) SpawnTunnelLoot(layout.TreasureAlcovePoint.Value);
+
+                SpawnSunderedLordBoss(layout.BossPoint);
+
+                BuildBossExitGate(layout.BossPoint + new Vector3(-7f, 0, 7f), "the Wraithbound Sanctum");
             }
 
             BuildReturnGate(layout.EntryPoint);
@@ -939,6 +1012,61 @@ namespace DungeonCrawler
             loot.maxGold = 9;
             loot.minEssence = 1;
             loot.maxEssence = 3;
+        }
+
+        private void SpawnWraithKnight(Vector3 pos)
+        {
+            var go = new GameObject("WraithKnight");
+            go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
+            go.AddComponent<Health>();
+            go.AddComponent<StatusEffectController>();
+            go.AddComponent<WraithKnight>();
+            go.AddComponent<AggroController>();
+            var loot = go.AddComponent<LootDropper>();
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
+            loot.minGold = 4;
+            loot.maxGold = 9;
+            loot.minEssence = 1;
+            loot.maxEssence = 3;
+        }
+
+        private void SpawnSpecterCaster(Vector3 pos)
+        {
+            var go = new GameObject("SpecterCaster");
+            go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
+            go.AddComponent<Health>();
+            go.AddComponent<StatusEffectController>();
+            go.AddComponent<SpecterCaster>();
+            go.AddComponent<AggroController>();
+            var loot = go.AddComponent<LootDropper>();
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
+            loot.minGold = 6;
+            loot.maxGold = 10;
+            loot.minEssence = 2;
+            loot.maxEssence = 3;
+        }
+
+        // SunderedLord sets its own maxHP in Awake() (matching SthenoSnakeQueen's own
+        // pattern) rather than having it overridden here.
+        private void SpawnSunderedLordBoss(Vector3 pos)
+        {
+            var go = new GameObject("SunderedLord");
+            go.transform.position = pos;
+            go.transform.SetParent(dungeonRoot.transform);
+            go.AddComponent<Health>();
+            go.AddComponent<StatusEffectController>();
+            go.AddComponent<SunderedLord>();
+            go.AddComponent<AggroController>();
+            var loot = go.AddComponent<LootDropper>();
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
+            loot.minGold = 90;
+            loot.maxGold = 140;
+            loot.minEssence = 30;
+            loot.maxEssence = 45;
+            loot.dropAsChest = true; // a boss scattering loot on the floor reads worse than it dropping a treasure chest
+            go.GetComponent<Health>().OnDeath += PlayerProgress.MarkWraithboundBossDefeated;
         }
 
         private void SpawnFrostLichBoss(Vector3 pos)
