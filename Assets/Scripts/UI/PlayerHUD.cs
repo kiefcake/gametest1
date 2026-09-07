@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using DungeonCrawler.Abilities;
 using DungeonCrawler.Classes;
 using DungeonCrawler.Core;
+using DungeonCrawler.Inventory;
 using DungeonCrawler.Loot;
 using DungeonCrawler.Visuals;
 using DungeonCrawler.World;
@@ -174,6 +175,18 @@ namespace DungeonCrawler.UI
             }
             if (goldLabel != null && wallet != null) goldLabel.text = $"Gold: {wallet.Gold}";
             if (essenceLabel != null && player.essence != null) essenceLabel.text = $"Essence: {player.essence.Amount}";
+
+            // Z/X quaff straight from the potion belt (see Inventory/PotionBelt) without
+            // opening the inventory -- the whole point of the belt over the grid. Blocked
+            // while downed, same guard PlayerAbilityInput uses for ability casts.
+            if (player.potionBelt != null && !player.health.IsDowned)
+            {
+                if (Input.GetKeyDown(KeyCode.Z) && player.potionBelt.TryQuaff(PotionBelt.Role.HP, player.Stats))
+                    player.RefreshDerivedStats();
+                if (Input.GetKeyDown(KeyCode.X) && player.potionBelt.TryQuaff(PotionBelt.Role.MP, player.Stats))
+                    player.RefreshDerivedStats();
+            }
+
             UpdateLookAtLabel();
             UpdateBuffBar();
         }
@@ -504,7 +517,7 @@ namespace DungeonCrawler.UI
             hint.fontSize = 13;
             hint.alignment = TextAnchor.MiddleCenter;
             hint.color = new Color(1f, 1f, 1f, 0.6f);
-            hint.text = "Hold LMB: Auto Attack -- Shift: Dash -- K: Ranks";
+            hint.text = "Hold LMB: Auto Attack -- Shift: Dash -- K: Ranks -- Z/X: Potion Belt";
 
             var lookAtRect = MakeRect("LookAtLabel", parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 26), new Vector2(400, 26));
             lookAtLabel = lookAtRect.gameObject.AddComponent<Text>();

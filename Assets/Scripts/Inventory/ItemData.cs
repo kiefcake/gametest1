@@ -8,7 +8,7 @@ namespace DungeonCrawler.Inventory
     // middle silently reassigns every value after it (this was caught mid-session: every
     // potion asset has category:2 baked in from when Potion was the 3rd entry, and briefly
     // deserialized as Ring instead once Ring was inserted before it).
-    public enum ItemCategory { Weapon, Armor, Potion, AllStatPotion, Cosmetic, Ring }
+    public enum ItemCategory { Weapon, Armor, Potion, AllStatPotion, Cosmetic, Ring, Material }
 
     // RealmEye/RotMG-style rarity tiers, ascending. Purely cosmetic (tooltip label + icon
     // backdrop color, see HoverTooltip callers and IconFactory) -- doesn't affect stats.

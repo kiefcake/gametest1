@@ -79,23 +79,43 @@ namespace DungeonCrawler.Inventory
         public bool UsePotionAt(int index, StatBlock stats)
         {
             var item = GetAt(index);
-            if (item == null || stats == null) return false;
-
-            if (item.category == ItemCategory.Potion)
-            {
-                if (!stats.ApplyPotion(item.potionStat)) return false;
-            }
-            else if (item.category == ItemCategory.AllStatPotion)
-            {
-                stats.ApplyAllStatPotion();
-            }
-            else
-            {
-                return false;
-            }
-
+            if (!ApplyPotionEffect(item, stats)) return false;
             RemoveAt(index);
             return true;
+        }
+
+        // Shared with PotionBelt.TryQuaff so a belt charge and a grid potion apply the
+        // exact same effect (including failing silently once the stat's already maxed --
+        // see StatBlock.ApplyPotion) without duplicating the category/potionStat branch.
+        public static bool ApplyPotionEffect(ItemData item, StatBlock stats)
+        {
+            if (item == null || stats == null) return false;
+            if (item.category == ItemCategory.Potion) return stats.ApplyPotion(item.potionStat);
+            if (item.category == ItemCategory.AllStatPotion) { stats.ApplyAllStatPotion(); return true; }
+            return false;
+        }
+
+        // Reference-equality count/removal -- upgrade materials are either a real asset
+        // ScriptableObject or a canonical runtime singleton (see BeltMaterialFactory),
+        // never independently-cloned duplicates of "the same" item, so this is safe.
+        public int CountItem(ItemData item)
+        {
+            if (item == null) return 0;
+            int count = 0;
+            for (int i = 0; i < slots.Length; i++) if (slots[i] == item) count++;
+            return count;
+        }
+
+        public void RemoveItem(ItemData item, int count)
+        {
+            if (item == null || count <= 0) return;
+            for (int i = 0; i < slots.Length && count > 0; i++)
+            {
+                if (slots[i] != item) continue;
+                slots[i] = null;
+                count--;
+            }
+            OnChanged?.Invoke();
         }
 
         // Equips a Weapon/Armor item from the given inventory slot, swapping whatever was

@@ -146,8 +146,16 @@ namespace DungeonCrawler
             {
                 inventoryUI.player = player;
                 inventoryUI.viewmodel = viewmodel; // so equipping a weapon updates the in-hand sprite too
-                inventoryUI.SetInventory(playerInventory);
+                inventoryUI.wallet = wallet; // potion belt upgrades can be paid in gold or essence
+                inventoryUI.SetInventory(playerInventory, player.potionBelt);
             }
+
+            // Ember Cores (the belt-upgrade material) don't have their own hand-authored
+            // loot-table row -- injected once into the two shared tables here instead,
+            // since Resources.Load caches the same LootTable instance for every trash/boss
+            // spawn and every chest across all four dungeons (see EnsureBeltMaterialDrop).
+            EnsureBeltMaterialDrop(Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable"), 0.02f);
+            EnsureBeltMaterialDrop(Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable"), 0.5f);
 
             PlayerHUD.Build(player, wallet, downedRecovery);
             StatScreenUI.Build(player); // toggle with C
@@ -681,6 +689,17 @@ namespace DungeonCrawler
             var interactable = triggerGO.AddComponent<Interactable>();
             interactable.prompt = $"Leave {dungeonLabel} (E)";
             interactable.onInteract = ReturnToHub;
+        }
+
+        // Idempotent -- safe to call every BeginRun even though Resources.Load returns the
+        // same cached LootTable instance each time, since the Exists() check skips
+        // re-adding a row that's already there instead of duplicating it.
+        private static void EnsureBeltMaterialDrop(Loot.LootTable table, float dropChance)
+        {
+            if (table == null) return;
+            var material = Inventory.BeltMaterialFactory.EmberCore;
+            if (table.entries.Exists(e => e.item == material)) return;
+            table.entries.Add(new Loot.LootEntry { item = material, dropChance = dropChance });
         }
 
         // A single guaranteed item, pulled the same way SpawnVaultLoot resolves its pool --

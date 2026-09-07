@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
+using DungeonCrawler.Abilities;
 using DungeonCrawler.Classes;
+using DungeonCrawler.Core;
 using DungeonCrawler.Visuals;
 using DungeonCrawler.UI;
 using DungeonCrawler.Loot;
@@ -26,6 +28,14 @@ namespace DungeonCrawler.Inventory
         // Set by GameBootstrap -- equipping a weapon updates the in-hand viewmodel too,
         // not just the floating icon PlayerCharacter already owns.
         public WeaponViewmodel viewmodel;
+        // Set by GameBootstrap -- the belt upgrade cost can be paid in either currency.
+        public PlayerWallet wallet;
+
+        private PotionBelt potionBelt;
+        private readonly Text[] beltCountTexts = new Text[PotionBelt.Roles.Length];
+        private Text beltUpgradeLabel;
+        private Button beltUpgradeButton;
+        private const float BeltRowHeight = 96f;
 
         private GameObject[] slotObjects;
         private HoverTooltip[] slotTooltips;
@@ -66,6 +76,7 @@ namespace DungeonCrawler.Inventory
             {
                 RestylePanel();
                 BuildEquipmentSlots();
+                BuildPotionBelt();
                 panelRoot.SetActive(false); // closed by default -- it used to just sit open the whole time
             }
         }
@@ -109,7 +120,7 @@ namespace DungeonCrawler.Inventory
         // InventorySystem) doesn't exist until GameBootstrap spawns it in Play mode --
         // well after this component's own OnEnable already ran with inventory == null.
         // Spawners call this once the InventorySystem exists to (re)wire and redraw.
-        public void SetInventory(InventorySystem inv)
+        public void SetInventory(InventorySystem inv, PotionBelt belt = null)
         {
             if (inventory != null)
             {
@@ -122,9 +133,16 @@ namespace DungeonCrawler.Inventory
                 inventory.OnChanged += Redraw;
                 inventory.OnEquipmentChanged += RedrawEquipment;
             }
+
+            if (potionBelt != null) potionBelt.OnChanged -= RefreshBelt;
+            potionBelt = belt;
+            if (potionBelt != null) potionBelt.OnChanged += RefreshBelt;
+            RewireBeltSlots();
+
             BuildGrid();
             Redraw();
             RedrawEquipment();
+            RefreshBelt();
         }
 
         // Recenters and enlarges the edit-time panel, swaps its flat placeholder sprite for
@@ -185,7 +203,7 @@ namespace DungeonCrawler.Inventory
             {
                 gridParent.anchorMin = Vector2.zero;
                 gridParent.anchorMax = Vector2.one;
-                gridParent.offsetMin = new Vector2(GridPadding, GridPadding);
+                gridParent.offsetMin = new Vector2(GridPadding, GridPadding + BeltRowHeight);
                 gridParent.offsetMax = new Vector2(-GridPadding, -(TitleHeight + EquipRowHeight));
 
                 var grid = gridParent.GetComponent<GridLayoutGroup>();
@@ -227,6 +245,17 @@ namespace DungeonCrawler.Inventory
                 button.onClick.AddListener(() => OnSlotClicked(index));
                 go.AddComponent<RightClickHandler>().onRightClick = () => OnSlotRightClicked(index);
                 slotTooltips[i] = go.AddComponent<HoverTooltip>();
+
+                // Drag source lives on the icon child, not the slot root, so it can't
+                // interfere with the root's own Button/RightClickHandler above -- only a
+                // potion needs to be draggable at all (onto PotionBeltSlotUI), everything
+                // else still uses click.
+                if (iconTransform != null)
+                {
+                    var draggable = iconTransform.gameObject.AddComponent<DraggableInventoryIcon>();
+                    draggable.slotIndex = index;
+                    draggable.inventory = inventory;
+                }
 
                 slotObjects[i] = go;
             }
@@ -440,5 +469,175 @@ namespace DungeonCrawler.Inventory
                 }
             }
         }
+
+        // --- Potion belt ------------------------------------------------------------
+        // A bottom strip inside this same panel (see BeltRowHeight carved out of the grid
+        // in RestylePanel) -- appears/disappears with the inventory itself since it's a
+        // child of panelRoot, per the feature request. 3 fixed-role slots (HP/MP/AllStat,
+        // see PotionBelt) plus an upgrade button that spends Ember Cores + gold-or-essence.
+
+        private PotionBeltSlotUI[] beltSlotUIs;
+
+        private void BuildPotionBelt()
+        {
+            var rowGO = new GameObject("PotionBeltRow", typeof(RectTransform));
+            rowGO.transform.SetParent(panelRoot.transform, false);
+            var rowRect = rowGO.GetComponent<RectTransform>();
+            rowRect.anchorMin = new Vector2(0f, 0f);
+            rowRect.anchorMax = new Vector2(1f, 0f);
+            rowRect.pivot = new Vector2(0.5f, 0f);
+            rowRect.anchoredPosition = new Vector2(0, GridPadding);
+            rowRect.sizeDelta = new Vector2(0, BeltRowHeight);
+
+            beltSlotUIs = new PotionBeltSlotUI[PotionBelt.Roles.Length];
+            string[] labels = { "HP (Z)", "MP (X)", "ALL-STAT" };
+            float[] xOffsets = { -190f, -100f, -10f };
+            for (int i = 0; i < PotionBelt.Roles.Length; i++)
+            {
+                beltSlotUIs[i] = BuildBeltSlot(rowGO.transform, PotionBelt.Roles[i], labels[i], xOffsets[i], i);
+            }
+
+            BuildBeltUpgradeButton(rowGO.transform);
+        }
+
+        private PotionBeltSlotUI BuildBeltSlot(Transform parent, PotionBelt.Role role, string label, float xOffset, int index)
+        {
+            var go = new GameObject("BeltSlot_" + role, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(xOffset, 6);
+            rect.sizeDelta = new Vector2(72, 72);
+            var bg = go.GetComponent<Image>();
+            bg.sprite = PanelSpriteFactory.CreateChamferedSprite(DungeonUITheme.Surface, RoleColor(role), 64, 8, 3);
+            bg.type = Image.Type.Sliced;
+            bg.color = Color.white;
+
+            var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            iconGO.transform.SetParent(go.transform, false);
+            var iconRect = iconGO.GetComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0.18f, 0.3f);
+            iconRect.anchorMax = new Vector2(0.82f, 0.94f);
+            iconRect.offsetMin = Vector2.zero;
+            iconRect.offsetMax = Vector2.zero;
+            var icon = iconGO.GetComponent<Image>();
+            icon.sprite = IconFactory.CreateRingIcon(RoleColor(role));
+            icon.raycastTarget = false; // the slot bg behind it is the real drop/click target
+
+            var countGO = new GameObject("Count", typeof(RectTransform), typeof(Text));
+            countGO.transform.SetParent(go.transform, false);
+            var countRect = countGO.GetComponent<RectTransform>();
+            countRect.anchorMin = new Vector2(0f, 0f);
+            countRect.anchorMax = new Vector2(1f, 0.3f);
+            countRect.offsetMin = Vector2.zero;
+            countRect.offsetMax = Vector2.zero;
+            var countText = countGO.GetComponent<Text>();
+            countText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            countText.fontSize = 11;
+            countText.fontStyle = FontStyle.Bold;
+            countText.alignment = TextAnchor.MiddleCenter;
+            countText.color = Color.white;
+            beltCountTexts[index] = countText;
+
+            var labelGO = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            labelGO.transform.SetParent(go.transform, false);
+            var labelRect = labelGO.GetComponent<RectTransform>();
+            labelRect.anchorMin = new Vector2(0.5f, 0f);
+            labelRect.anchorMax = new Vector2(0.5f, 0f);
+            labelRect.pivot = new Vector2(0.5f, 1f);
+            labelRect.anchoredPosition = new Vector2(0, -2);
+            labelRect.sizeDelta = new Vector2(90, 14);
+            var labelText = labelGO.GetComponent<Text>();
+            labelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            labelText.fontSize = 10;
+            labelText.alignment = TextAnchor.MiddleCenter;
+            labelText.color = DungeonUITheme.TextFaint;
+            labelText.text = label;
+
+            var slotUI = go.AddComponent<PotionBeltSlotUI>();
+            slotUI.role = role;
+            var tooltip = go.AddComponent<HoverTooltip>();
+            tooltip.content = "Drag a matching potion here -- click, or press Z/X, to quaff.";
+            return slotUI;
+        }
+
+        private void BuildBeltUpgradeButton(Transform parent)
+        {
+            var go = new GameObject("BeltUpgradeButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(parent, false);
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(150, 6);
+            rect.sizeDelta = new Vector2(160, 72);
+            var img = go.GetComponent<Image>();
+            img.sprite = PanelSpriteFactory.CreateChamferedSprite(DungeonUITheme.EmberFill, DungeonUITheme.EmberDim, 64, 8, 3);
+            img.type = Image.Type.Sliced;
+            img.color = Color.white;
+
+            var textGO = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            textGO.transform.SetParent(go.transform, false);
+            var textRect = textGO.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(6, 4);
+            textRect.offsetMax = new Vector2(-6, -4);
+            beltUpgradeLabel = textGO.GetComponent<Text>();
+            beltUpgradeLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            beltUpgradeLabel.fontSize = 11;
+            beltUpgradeLabel.fontStyle = FontStyle.Bold;
+            beltUpgradeLabel.alignment = TextAnchor.MiddleCenter;
+            beltUpgradeLabel.color = DungeonUITheme.EmberBright;
+
+            beltUpgradeButton = go.GetComponent<Button>();
+            beltUpgradeButton.onClick.AddListener(OnBeltUpgradeClicked);
+        }
+
+        private void OnBeltUpgradeClicked()
+        {
+            if (potionBelt == null || inventory == null) return;
+            potionBelt.TryUpgrade(inventory, wallet, player != null ? player.essence : null);
+        }
+
+        // Re-points every already-built belt slot at the current inventory/belt/player --
+        // needed because BuildPotionBelt() runs in Awake(), before GameBootstrap has
+        // assigned any of those (see SetInventory's "well after this component's own
+        // OnEnable already ran" comment above, which applies here too).
+        private void RewireBeltSlots()
+        {
+            if (beltSlotUIs == null) return;
+            foreach (var slotUI in beltSlotUIs)
+            {
+                if (slotUI == null) continue;
+                slotUI.belt = potionBelt;
+                slotUI.inventory = inventory;
+                slotUI.player = player;
+            }
+        }
+
+        private void RefreshBelt()
+        {
+            if (potionBelt == null) return;
+            for (int i = 0; i < PotionBelt.Roles.Length; i++)
+            {
+                if (beltCountTexts[i] != null)
+                    beltCountTexts[i].text = $"{potionBelt.GetCount(PotionBelt.Roles[i])}/{potionBelt.Capacity}";
+            }
+            if (beltUpgradeLabel != null)
+            {
+                beltUpgradeLabel.text = potionBelt.CanUpgrade
+                    ? $"Upgrade Belt\n{potionBelt.NextMaterialCost} Ember Core\n{potionBelt.NextCurrencyCost}g / essence"
+                    : "Belt Maxed";
+            }
+            if (beltUpgradeButton != null) beltUpgradeButton.interactable = potionBelt.CanUpgrade;
+        }
+
+        private static Color RoleColor(PotionBelt.Role role) => role switch
+        {
+            PotionBelt.Role.HP => DungeonUITheme.HpFill,
+            PotionBelt.Role.MP => DungeonUITheme.ManaFill,
+            _ => DungeonUITheme.Gold,
+        };
     }
 }
