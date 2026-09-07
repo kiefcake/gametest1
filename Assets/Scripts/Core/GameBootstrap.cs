@@ -336,13 +336,12 @@ namespace DungeonCrawler
             PopulateMarshlands(world.Marshlands);
             PopulateSnakePitZone(world.SnakePit);
 
-            // RotMG's Oryx's Sanctuary inspiration -- three cleared camps (runes) light the
-            // shared monument and unlock a bonus pull on top of each camp's own dungeon-unlock payoff.
-            // Kept at the original three rather than requiring the Snake Pit too -- the
-            // monument/Hardcore-unlock design was already locked in around "three bosses"
-            // before this dungeon existed, and re-deriving that threshold isn't part of
-            // recreating Stheno faithfully.
-            if (wastesCleared && frostlandsCleared && marshlandsCleared)
+            // RotMG's Oryx's Sanctuary inspiration -- cleared camps (runes) light the
+            // shared monument and unlock a bonus pull on top of each camp's own
+            // dungeon-unlock payoff. Now requires all four camps (the monument itself
+            // grew a 4th pedestal for Snake Pit to match, see OpenWorldLayout.BuildMonument)
+            // -- originally gated on three, back before the Snake Pit zone existed.
+            if (wastesCleared && frostlandsCleared && marshlandsCleared && snakePitZoneCleared)
             {
                 SpawnMonumentReward(world.MonumentPoint);
             }
@@ -368,7 +367,7 @@ namespace DungeonCrawler
             }
             foreach (var p in zone.guardPoints) SpawnImp(p, true);
 
-            SpawnBanditMiniboss<ImpDemon>(zone.minibossPoint, 400f, 1.8f,
+            SpawnBanditMiniboss<ImpChief>(zone.minibossPoint, 400f, 1.8f,
                 () => { wastesCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterAbyssDungeon); },
                 imp => imp.ApplyVariant(true));
         }
@@ -386,7 +385,7 @@ namespace DungeonCrawler
             foreach (var p in zone.roamPoints) SpawnFrostSkeleton(p);
             foreach (var p in zone.guardPoints) SpawnFrostSkeleton(p);
 
-            SpawnBanditMiniboss<FrostSkeleton>(zone.minibossPoint, 400f, 1.8f,
+            SpawnBanditMiniboss<FrostSkeletonChief>(zone.minibossPoint, 400f, 1.8f,
                 () => { frostlandsCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterFrozenCrypt); });
         }
 
@@ -403,7 +402,7 @@ namespace DungeonCrawler
             foreach (var p in zone.roamPoints) SpawnBogLurker(p);
             foreach (var p in zone.guardPoints) SpawnBogLurker(p);
 
-            SpawnBanditMiniboss<BogLurker>(zone.minibossPoint, 400f, 1.8f,
+            SpawnBanditMiniboss<BogLurkerChief>(zone.minibossPoint, 400f, 1.8f,
                 () => { marshlandsCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterSunkenRuins); });
         }
 
@@ -426,7 +425,7 @@ namespace DungeonCrawler
             }
             foreach (var p in zone.guardPoints) SpawnPitSnake(p);
 
-            SpawnBanditMiniboss<PitSnake>(zone.minibossPoint, 400f, 1.8f,
+            SpawnBanditMiniboss<PitSnakeChief>(zone.minibossPoint, 400f, 1.8f,
                 () => { snakePitZoneCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterSnakePit); });
         }
 
@@ -475,6 +474,10 @@ namespace DungeonCrawler
                 "The Wastes" => new Color(0.9f, 0.35f, 0.1f),
                 "The Frostlands" => new Color(0.35f, 0.75f, 1f),
                 "The Marshlands" => new Color(0.3f, 0.85f, 0.5f),
+                // Was falling through to the generic default below -- gets its own regal
+                // purple/gold explicitly now, matching Stheno's own palette rather than
+                // coincidentally landing on a similar color via the unrelated fallback.
+                "The Snake Pit" => new Color(0.55f, 0.2f, 0.7f),
                 _ => new Color(0.6f, 0.15f, 0.75f),
             };
             Color glowA = new Color(portalColor.r * 0.7f, portalColor.g * 0.7f, portalColor.b * 0.7f);

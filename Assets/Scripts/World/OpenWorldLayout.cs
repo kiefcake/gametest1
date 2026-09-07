@@ -1,5 +1,7 @@
 using UnityEngine;
+using DungeonCrawler.Classes;
 using DungeonCrawler.Core;
+using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.World
 {
@@ -94,19 +96,26 @@ namespace DungeonCrawler.World
             // the hub).
             EntryPoint = new Vector3(0, 0, 5f);
 
-            Wastes = BuildBiome("The Wastes", -60f, new Color(0.32f, 0.16f, 0.08f), HazardKind.Lava);
-            Frostlands = BuildBiome("The Frostlands", 0f, new Color(0.72f, 0.82f, 0.9f), HazardKind.Ice);
-            Marshlands = BuildBiome("The Marshlands", 60f, new Color(0.22f, 0.26f, 0.16f), HazardKind.Bog);
-            SnakePit = BuildBiome("The Snake Pit", 120f, new Color(0.36f, 0.28f, 0.14f), HazardKind.Venom);
+            Wastes = BuildBiome("The Wastes", -60f, new Color(0.32f, 0.16f, 0.08f), HazardKind.Lava,
+                new Color(0.6f, 0.4f, 0.28f), new Color(0.35f, 0.14f, 0.05f));
+            Frostlands = BuildBiome("The Frostlands", 0f, new Color(0.72f, 0.82f, 0.9f), HazardKind.Ice,
+                new Color(0.85f, 0.9f, 0.95f), new Color(0.65f, 0.78f, 0.9f));
+            Marshlands = BuildBiome("The Marshlands", 60f, new Color(0.22f, 0.26f, 0.16f), HazardKind.Bog,
+                new Color(0.28f, 0.34f, 0.2f), new Color(0.14f, 0.2f, 0.12f));
+            SnakePit = BuildBiome("The Snake Pit", 120f, new Color(0.36f, 0.28f, 0.14f), HazardKind.Venom,
+                new Color(0.55f, 0.44f, 0.24f), new Color(0.32f, 0.22f, 0.12f));
 
             BuildMonument();
             BuildPerimeterWalls();
         }
 
-        private BiomeZone BuildBiome(string label, float centerX, Color groundColor, HazardKind hazard)
+        private BiomeZone BuildBiome(string label, float centerX, Color groundColor, HazardKind hazard,
+            Color terrainColor, Color fogColor)
         {
             Vector3 zoneCenter = new Vector3(centerX, 0, ZoneCenterZ);
             BuildGroundPlane(zoneCenter, groundColor);
+            BuildZoneTerrain(zoneCenter, terrainColor);
+            BuildZoneAtmosphereTrigger(zoneCenter, fogColor);
 
             foreach (var offset in HazardOffsets)
             {
@@ -138,6 +147,56 @@ namespace DungeonCrawler.World
             };
         }
 
+        // Real elevation per zone -- previously every biome was a flat, featureless plane
+        // (only the camp/hazard primitives broke it up), which read as "one shared field
+        // recolored four times" rather than four distinct places. Positions are the
+        // zone's own corners/edges, well clear of every hazard/camp/roam/guard point
+        // (all of which stay within roughly |x|<=25, -20<=z<=28 relative to zoneCenter).
+        private void BuildZoneTerrain(Vector3 zoneCenter, Color terrainColor)
+        {
+            VillageDecor.BuildHill(transform, zoneCenter + new Vector3(0f, 0, 32f), 3.5f, 2.2f, terrainColor);
+            VillageDecor.BuildHill(transform, zoneCenter + new Vector3(-27f, 0, 5f), 2.8f, 1.6f, terrainColor);
+            VillageDecor.BuildRockCluster(transform, zoneCenter + new Vector3(27f, 0, -25f), 1.1f);
+            VillageDecor.BuildRockCluster(transform, zoneCenter + new Vector3(-27f, 0, -30f), 0.9f);
+        }
+
+        // A large trigger covering the zone's whole footprint -- tints distant fog to that
+        // biome's own color the moment the player steps into it, so each of the four zones
+        // actually reads as a different place to be instead of the same flat, fogless field
+        // recolored underfoot. Distance is kept generous (well past the zone's own 70-unit
+        // depth) so this tints the horizon rather than obscuring nearby combat -- an open-
+        // world atmosphere cue, not a dungeon's close, obscuring fog.
+        private void BuildZoneAtmosphereTrigger(Vector3 zoneCenter, Color fogColor)
+        {
+            var go = new GameObject("ZoneAtmosphere");
+            go.transform.SetParent(transform);
+            go.transform.position = zoneCenter;
+            var col = go.AddComponent<BoxCollider>();
+            col.isTrigger = true;
+            col.size = new Vector3(ZoneHalfWidth * 2f, 20f, ZoneHalfDepth * 2f);
+            var trigger = go.AddComponent<ZoneAtmosphereTrigger>();
+            trigger.fogColor = fogColor;
+        }
+
+        // OnTriggerEnter-only (see BuildZoneAtmosphereTrigger's comment) -- every zone
+        // tiles the walkable area edge to edge with no gap, so the player is always inside
+        // exactly one zone's trigger; handling only Enter avoids any Exit/Enter ordering
+        // ambiguity right at a shared boundary between two abutting triggers.
+        private class ZoneAtmosphereTrigger : MonoBehaviour
+        {
+            public Color fogColor;
+
+            private void OnTriggerEnter(Collider other)
+            {
+                if (other.GetComponentInParent<PlayerCharacter>() == null) return;
+                RenderSettings.fog = true;
+                RenderSettings.fogMode = FogMode.Linear;
+                RenderSettings.fogColor = fogColor;
+                RenderSettings.fogStartDistance = 45f;
+                RenderSettings.fogEndDistance = 150f;
+            }
+        }
+
         // A shared plaza between EntryPoint and the three biome zones -- see
         // GameBootstrap.SpawnMonumentReward for the payoff this decorates (RotMG's Oryx's
         // Sanctuary: three runes each light a pedestal, all three lit unlocks a bonus at
@@ -158,13 +217,17 @@ namespace DungeonCrawler.World
             dais.transform.localScale = new Vector3(MonumentDaisRadius * 2f, MonumentDaisHeight / 2f, MonumentDaisRadius * 2f);
             SetColor(dais, new Color(0.5f, 0.48f, 0.45f)); // weathered stone
 
-            // Triangle around the dais edge, one pedestal per camp, tinted and pointed
-            // toward the biome it represents -- Frostlands sits at centerX 0 so "straight
-            // ahead" (+Z, deeper into the overworld) is literally its own direction, while
-            // Wastes/Marshlands pedestals point along -X/+X toward their own zones.
+            // A 4-point compass around the dais, one pedestal per camp -- was a 3-point
+            // triangle that quietly left Snake Pit out of the monument entirely (it only
+            // got added as a 4th zone after this was written). Frostlands keeps "straight
+            // ahead" (+Z, literally its own direction from centerX 0); the other three are
+            // now a clean compass layout rather than trying to match their real -X/+X
+            // zone directions exactly, since Marshlands and Snake Pit both sit on the +X
+            // side in reality and can't both point there without overlapping.
             BuildMonumentPedestal(new Vector3(-MonumentPedestalRadius, 0, 0), new Color(0.85f, 0.35f, 0.1f));  // Wastes
             BuildMonumentPedestal(new Vector3(0, 0, MonumentPedestalRadius), new Color(0.55f, 0.85f, 1f));     // Frostlands
             BuildMonumentPedestal(new Vector3(MonumentPedestalRadius, 0, 0), new Color(0.3f, 0.85f, 0.5f));    // Marshlands
+            BuildMonumentPedestal(new Vector3(0, 0, -MonumentPedestalRadius), new Color(0.65f, 0.35f, 0.8f));  // Snake Pit
         }
 
         // Small waist-high cube -- no collider concerns beyond the Cube primitive's own
@@ -275,7 +338,7 @@ namespace DungeonCrawler.World
                     BuildReedCluster(clusterPos);
                     break;
                 case HazardKind.Venom:
-                    BuildReedCluster(clusterPos); // reuses the same reed-cluster read -- fits a venomous thicket just as well as a bog
+                    BuildThornbrushCluster(clusterPos);
                     break;
                 default:
                     BuildScorchedRockCluster(clusterPos);
@@ -322,6 +385,33 @@ namespace DungeonCrawler.World
                 spike.transform.rotation = Quaternion.Euler(Random.Range(-8f, 8f), Random.Range(0f, 360f), Random.Range(-8f, 8f));
                 spike.transform.localScale = new Vector3(0.1f, Random.Range(0.4f, 0.7f), 0.1f);
                 SetColor(spike, iceColor);
+            }
+        }
+
+        // Snake Pit's clutter -- dry, angular thornbrush and squat barrel-cactus cones,
+        // dusty tan/olive to match the zone's own ground color. Used to just reuse
+        // Marshlands' reed cluster, which read as "another wet bog plant" in a dry venom
+        // pit -- this is the zone's first visually distinct hazard prop.
+        private void BuildThornbrushCluster(Vector3 pos)
+        {
+            var brushColor = new Color(0.42f, 0.34f, 0.16f);
+            var caneColor = new Color(0.34f, 0.4f, 0.18f);
+            int count = Random.Range(3, 6);
+            for (int i = 0; i < count; i++)
+            {
+                bool cactusCone = Random.value > 0.5f;
+                var piece = GameObject.CreatePrimitive(cactusCone ? PrimitiveType.Cylinder : PrimitiveType.Cube);
+                piece.name = cactusCone ? "BarrelCactus" : "Thornbrush";
+                var col = piece.GetComponent<Collider>();
+                if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
+                piece.transform.SetParent(transform);
+                Vector3 offset = new Vector3(Random.Range(-0.6f, 0.6f), 0.1f, Random.Range(-0.6f, 0.6f));
+                piece.transform.position = pos + offset;
+                piece.transform.rotation = Quaternion.Euler(Random.Range(-10f, 10f), Random.Range(0f, 360f), Random.Range(-10f, 10f));
+                piece.transform.localScale = cactusCone
+                    ? new Vector3(Random.Range(0.18f, 0.3f), Random.Range(0.25f, 0.45f), Random.Range(0.18f, 0.3f))
+                    : new Vector3(Random.Range(0.1f, 0.18f), Random.Range(0.3f, 0.55f), Random.Range(0.1f, 0.18f));
+                SetColor(piece, cactusCone ? caneColor : brushColor);
             }
         }
 
