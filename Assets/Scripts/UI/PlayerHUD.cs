@@ -473,8 +473,15 @@ namespace DungeonCrawler.UI
                 var slotRect = MakeRect($"AbilitySlot_{slots[i]}", parent, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                     new Vector2(0.5f, 0f), new Vector2(x, 24), new Vector2(slotSize, slotSize));
 
+                // Baked with a WHITE fill, not ReadyColor -- Update() below re-tints this
+                // Image.color every frame (Ready/NotReady/Locked), and Image.color
+                // multiplies against the sprite's own baked pixel colors. Baking a real
+                // color in AND tinting it again at runtime squares the two together
+                // (e.g. ReadyColor tinted by NotReadyColor renders as their product, not
+                // NotReadyColor) -- white is the multiplicative identity, so it's the only
+                // safe bake color for a sprite whose tint changes after creation.
                 var bg = slotRect.gameObject.AddComponent<Image>();
-                bg.sprite = PanelSpriteFactory.CreateChamferedSprite(ReadyColor, DungeonUITheme.EmberDim, 64, 6, 3);
+                bg.sprite = PanelSpriteFactory.CreateChamferedSprite(Color.white, DungeonUITheme.EmberDim, 64, 6, 3);
                 bg.type = Image.Type.Sliced;
                 bg.color = ReadyColor;
 

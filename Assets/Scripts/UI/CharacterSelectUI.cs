@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 using DungeonCrawler.Core;
+using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.UI
 {
@@ -13,8 +14,9 @@ namespace DungeonCrawler.UI
     {
         private Image hardcoreButtonImage;
         private Text hardcoreButtonText;
-        private static readonly Color HardcoreOffColor = new Color(0.3f, 0.3f, 0.34f);
-        private static readonly Color HardcoreOnColor = new Color(0.65f, 0.2f, 0.2f);
+        private static readonly Color HardcoreOffColor = DungeonUITheme.Surface;
+        private static readonly Color HardcoreOnColor = DungeonUITheme.HpFill;
+        private Sprite hardcoreOffSprite, hardcoreOnSprite;
 
         private struct ClassOption
         {
@@ -68,7 +70,7 @@ namespace DungeonCrawler.UI
             bgRect.anchorMax = Vector2.one;
             bgRect.offsetMin = Vector2.zero;
             bgRect.offsetMax = Vector2.zero;
-            bgGO.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.07f, 0.97f);
+            bgGO.GetComponent<Image>().color = DungeonUITheme.Ground;
 
             var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
@@ -78,7 +80,7 @@ namespace DungeonCrawler.UI
             titleText.fontSize = 52;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleCenter;
-            titleText.color = Color.white;
+            titleText.color = DungeonUITheme.TextPrimary;
             titleText.text = "Choose Your Class";
 
             const float cardWidth = 340f;
@@ -117,6 +119,14 @@ namespace DungeonCrawler.UI
             rect.anchoredPosition = new Vector2(0, 40);
             rect.sizeDelta = new Vector2(320, 48);
             hardcoreButtonImage = go.GetComponent<Image>();
+            // Two fully-baked sprites (not one sprite + a runtime Image.color tint) --
+            // Off gets a neutral border, On gets an ember one, so RefreshHardcoreToggle
+            // swaps the sprite reference itself instead of tinting a shared bake, which
+            // would multiply the baked color against the tint (see PlayerHUD/ShopUI's
+            // identical fix for the same failure mode).
+            hardcoreOffSprite = PanelSpriteFactory.CreateChamferedSprite(HardcoreOffColor, DungeonUITheme.Border, 64, 8, 3);
+            hardcoreOnSprite = PanelSpriteFactory.CreateChamferedSprite(HardcoreOnColor, DungeonUITheme.EmberDim, 64, 8, 3);
+            hardcoreButtonImage.type = Image.Type.Sliced;
 
             var textGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
             textGO.transform.SetParent(go.transform, false);
@@ -130,7 +140,7 @@ namespace DungeonCrawler.UI
             hardcoreButtonText.fontSize = 18;
             hardcoreButtonText.fontStyle = FontStyle.Bold;
             hardcoreButtonText.alignment = TextAnchor.MiddleCenter;
-            hardcoreButtonText.color = Color.white;
+            hardcoreButtonText.color = DungeonUITheme.TextPrimary;
 
             go.GetComponent<Button>().onClick.AddListener(ToggleHardcore);
             RefreshHardcoreToggle();
@@ -146,7 +156,8 @@ namespace DungeonCrawler.UI
         {
             bool on = RunModifiers.DoubleDamageTaken;
             hardcoreButtonText.text = on ? "Hardcore: ON (2x dmg taken)" : "Hardcore: OFF";
-            hardcoreButtonImage.color = on ? HardcoreOnColor : HardcoreOffColor;
+            hardcoreButtonImage.sprite = on ? hardcoreOnSprite : hardcoreOffSprite;
+            hardcoreButtonImage.color = Color.white;
         }
 
         private RectTransform MakeAnchoredRect(Transform parent, Vector2 anchor, Vector2 anchoredPos, Vector2 sizeDelta)
@@ -171,7 +182,14 @@ namespace DungeonCrawler.UI
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = new Vector2(x, -20);
             rect.sizeDelta = new Vector2(width, 460);
-            cardGO.GetComponent<Image>().color = new Color(0.12f, 0.12f, 0.15f, 0.95f);
+            // Each class keeps its own accent as the card's border/stripe/role color --
+            // that per-class distinction was already good design, just flat and
+            // borderless before. Chamfered frame now, same carved-stone language as
+            // everywhere else, with the class's own color as its one departure per card.
+            var cardImage = cardGO.GetComponent<Image>();
+            cardImage.sprite = PanelSpriteFactory.CreateChamferedSprite(DungeonUITheme.SurfaceRaised, opt.color, 96, 14, 4);
+            cardImage.type = Image.Type.Sliced;
+            cardImage.color = Color.white;
             cardGO.GetComponent<Button>().onClick.AddListener(onClick);
 
             var stripeGO = new GameObject("Stripe", typeof(RectTransform), typeof(Image));
@@ -183,16 +201,16 @@ namespace DungeonCrawler.UI
             stripeRect.sizeDelta = new Vector2(0, 14);
             stripeGO.GetComponent<Image>().color = opt.color;
 
-            MakeCardText(cardGO.transform, font, opt.name, 30, FontStyle.Bold, Color.white, new Vector2(0, -50), new Vector2(width - 40, 50));
+            MakeCardText(cardGO.transform, font, opt.name, 30, FontStyle.Bold, DungeonUITheme.TextPrimary, new Vector2(0, -50), new Vector2(width - 40, 50));
             MakeCardText(cardGO.transform, font, opt.role, 16, FontStyle.Bold, opt.color, new Vector2(0, -85), new Vector2(width - 40, 30));
-            MakeCardText(cardGO.transform, font, opt.blurb, 15, FontStyle.Normal, new Color(0.82f, 0.82f, 0.82f), new Vector2(0, -160), new Vector2(width - 50, 260));
+            MakeCardText(cardGO.transform, font, opt.blurb, 15, FontStyle.Normal, DungeonUITheme.TextMuted, new Vector2(0, -160), new Vector2(width - 50, 260));
 
             var hintRect = MakeAnchoredRect(cardGO.transform, new Vector2(0.5f, 0f), new Vector2(0, 24), new Vector2(width - 40, 30));
             var hint = hintRect.gameObject.AddComponent<Text>();
             hint.font = font;
             hint.fontSize = 14;
             hint.alignment = TextAnchor.MiddleCenter;
-            hint.color = new Color(0.6f, 0.6f, 0.65f);
+            hint.color = DungeonUITheme.TextFaint;
             hint.text = "Click to select";
         }
 

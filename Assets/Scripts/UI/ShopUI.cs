@@ -42,12 +42,12 @@ namespace DungeonCrawler.UI
 
         private readonly List<GameObject> rowObjects = new List<GameObject>();
 
-        private static readonly Color PanelFill = new Color(0.08f, 0.08f, 0.11f, 0.97f);
-        private static readonly Color PanelBorder = new Color(0.55f, 0.45f, 0.25f, 1f); // warm gold -- a shop, not a dungeon menu
-        private static readonly Color RowFill = new Color(0.16f, 0.16f, 0.2f, 0.9f);
-        private static readonly Color RowBorder = new Color(0.3f, 0.3f, 0.36f, 1f);
-        private static readonly Color TabActive = new Color(0.35f, 0.75f, 0.4f);
-        private static readonly Color TabInactive = new Color(0.24f, 0.24f, 0.28f);
+        private static readonly Color PanelFill = DungeonUITheme.SurfaceRaised;
+        private static readonly Color PanelBorder = DungeonUITheme.EmberDim;
+        private static readonly Color RowFill = DungeonUITheme.Surface;
+        private static readonly Color RowBorder = DungeonUITheme.Border;
+        private static readonly Color TabActive = DungeonUITheme.EmberFill;
+        private static readonly Color TabInactive = DungeonUITheme.Surface;
 
         public static void Show(VendorNPC vendor, InventorySystem inventory, PlayerWallet wallet)
         {
@@ -111,19 +111,19 @@ namespace DungeonCrawler.UI
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.sizeDelta = new Vector2(680, 640);
             var panelImage = panelRoot.GetComponent<Image>();
-            panelImage.sprite = PanelSpriteFactory.CreateRoundedSprite(PanelFill, PanelBorder);
+            panelImage.sprite = PanelSpriteFactory.CreateChamferedSprite(PanelFill, PanelBorder, 96, 16, 4);
             panelImage.type = Image.Type.Sliced;
             panelImage.color = Color.white;
 
-            rowBgSprite = PanelSpriteFactory.CreateRoundedSprite(RowFill, RowBorder, size: 64, radius: 10, borderThickness: 3);
-            buttonSprite = PanelSpriteFactory.CreateRoundedSprite(new Color(0.2f, 0.2f, 0.24f), new Color(0.4f, 0.4f, 0.48f), size: 64, radius: 10, borderThickness: 3);
+            rowBgSprite = PanelSpriteFactory.CreateChamferedSprite(RowFill, RowBorder, 64, 8, 3);
+            buttonSprite = PanelSpriteFactory.CreateChamferedSprite(DungeonUITheme.Surface, DungeonUITheme.BorderBright, 64, 8, 3);
 
             titleText = MakeLabel(panelRoot.transform, 28, FontStyle.Bold, TextAnchor.MiddleCenter,
-                new Vector2(0.5f, 1f), new Vector2(0, -36), new Vector2(560, 42), Color.white);
+                new Vector2(0.5f, 1f), new Vector2(0, -36), new Vector2(560, 42), DungeonUITheme.TextPrimary);
             flavorText = MakeLabel(panelRoot.transform, 15, FontStyle.Italic, TextAnchor.MiddleCenter,
-                new Vector2(0.5f, 1f), new Vector2(0, -70), new Vector2(620, 28), new Color(0.7f, 0.7f, 0.75f));
+                new Vector2(0.5f, 1f), new Vector2(0, -70), new Vector2(620, 28), DungeonUITheme.TextFaint);
             goldText = MakeLabel(panelRoot.transform, 20, FontStyle.Bold, TextAnchor.MiddleRight,
-                new Vector2(1f, 1f), new Vector2(-28, -36), new Vector2(180, 34), new Color(1f, 0.84f, 0.2f));
+                new Vector2(1f, 1f), new Vector2(-28, -36), new Vector2(180, 34), DungeonUITheme.Gold);
 
             buyTabButton = MakeTabButton(panelRoot.transform, "Buy", new Vector2(-72, -102), () => SetMode(false));
             sellTabButton = MakeTabButton(panelRoot.transform, "Sell", new Vector2(72, -102), () => SetMode(true));
@@ -223,10 +223,12 @@ namespace DungeonCrawler.UI
         {
             var rowGO = BuildRowBase("Row_" + entry.item.itemName, entry.item);
 
+            // Unaffordable rows keep the item name/icon at full contrast and only grey the
+            // price/button (see BuildPriceButton) -- never dim the whole row, or a player
+            // skimming the list reads it as "sold out" rather than "not yet affordable".
             bool canAfford = wallet != null && wallet.Gold >= entry.price;
             var capturedEntry = entry; // capture per-row value, not the loop variable
-            BuildPriceButton(rowGO.transform, $"{entry.price}g", canAfford,
-                canAfford ? new Color(0.35f, 0.75f, 0.4f) : new Color(0.6f, 0.3f, 0.3f),
+            BuildPriceButton(rowGO.transform, canAfford ? $"{entry.price}g" : "Too poor", canAfford,
                 () => Buy(capturedEntry));
 
             return rowGO;
@@ -238,7 +240,7 @@ namespace DungeonCrawler.UI
 
             int price = ItemEconomy.SellPrice(item);
             int capturedIndex = index; // capture per-row value, not the loop variable
-            BuildPriceButton(rowGO.transform, $"Sell {price}g", true, new Color(0.55f, 0.45f, 0.25f),
+            BuildPriceButton(rowGO.transform, $"Sell {price}g", true,
                 () => SellItem(capturedIndex));
 
             return rowGO;
@@ -255,7 +257,7 @@ namespace DungeonCrawler.UI
             rowImage.color = Color.white;
 
             var text = MakeLabel(rowGO.transform, 15, FontStyle.Italic, TextAnchor.MiddleCenter,
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560, 52), new Color(0.6f, 0.6f, 0.65f));
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560, 52), DungeonUITheme.TextFaint);
             text.text = message;
             return rowGO;
         }
@@ -334,7 +336,10 @@ namespace DungeonCrawler.UI
             return rowGO;
         }
 
-        private void BuildPriceButton(Transform rowTransform, string label, bool interactable, Color color, UnityEngine.Events.UnityAction onClick)
+        // Ember outline when actionable (affordable buy, or any sell -- selling is always
+        // possible), grey when not -- matches the kit's "unaffordable greys the price and
+        // button only" rule instead of the old green/red afford-color scheme.
+        private void BuildPriceButton(Transform rowTransform, string label, bool interactable, UnityEngine.Events.UnityAction onClick)
         {
             var buyGO = new GameObject("Price", typeof(RectTransform), typeof(Image), typeof(Button));
             buyGO.transform.SetParent(rowTransform, false);
@@ -344,9 +349,11 @@ namespace DungeonCrawler.UI
             buyRect.anchoredPosition = new Vector2(-20, 0);
             buyRect.sizeDelta = new Vector2(120, 48);
             var buyImage = buyGO.GetComponent<Image>();
-            buyImage.sprite = buttonSprite;
+            buyImage.sprite = PanelSpriteFactory.CreateChamferedSprite(
+                interactable ? DungeonUITheme.EmberFill : new Color(0.12f, 0.13f, 0.17f),
+                interactable ? DungeonUITheme.EmberDim : DungeonUITheme.Border, 48, 6, 3);
             buyImage.type = Image.Type.Sliced;
-            buyImage.color = color;
+            buyImage.color = Color.white;
             var button = buyGO.GetComponent<Button>();
             button.interactable = interactable;
             button.onClick.AddListener(onClick);
@@ -361,8 +368,9 @@ namespace DungeonCrawler.UI
             var buyText = buyTextGO.GetComponent<Text>();
             buyText.font = font;
             buyText.fontSize = 15;
+            buyText.fontStyle = FontStyle.Bold;
             buyText.alignment = TextAnchor.MiddleCenter;
-            buyText.color = Color.white;
+            buyText.color = interactable ? DungeonUITheme.EmberBright : new Color(0.35f, 0.35f, 0.42f);
             buyText.text = label;
         }
 
@@ -434,7 +442,7 @@ namespace DungeonCrawler.UI
             text.font = font;
             text.fontSize = 18;
             text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
+            text.color = DungeonUITheme.TextBody;
             text.text = label;
 
             go.GetComponent<Button>().onClick.AddListener(onClick);
@@ -450,8 +458,11 @@ namespace DungeonCrawler.UI
             rect.pivot = new Vector2(0.5f, 1f);
             rect.anchoredPosition = anchoredPos;
             rect.sizeDelta = new Vector2(130, 32);
+            // White bake, not TabInactive -- Redraw() re-tints Image.color between
+            // TabInactive/TabActive every time the Buy/Sell mode changes, and a non-white
+            // bake would multiply against that tint instead of showing the intended color.
             var img = go.GetComponent<Image>();
-            img.sprite = buttonSprite;
+            img.sprite = PanelSpriteFactory.CreateChamferedSprite(Color.white, DungeonUITheme.Border, 48, 6, 3);
             img.type = Image.Type.Sliced;
             img.color = TabInactive;
 
@@ -467,7 +478,7 @@ namespace DungeonCrawler.UI
             text.fontSize = 15;
             text.fontStyle = FontStyle.Bold;
             text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
+            text.color = DungeonUITheme.TextBody;
             text.text = label;
 
             var button = go.GetComponent<Button>();

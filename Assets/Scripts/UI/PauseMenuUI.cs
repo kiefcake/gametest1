@@ -21,9 +21,9 @@ namespace DungeonCrawler.UI
         private Sprite buttonSprite;
         public bool IsPaused { get; private set; }
 
-        private static readonly Color PanelFill = new Color(0.08f, 0.08f, 0.11f, 0.97f);
-        private static readonly Color PauseAccent = new Color(0.75f, 0.2f, 0.2f, 1f); // red -- "paused," a stop state
-        private static readonly Color SettingsAccent = new Color(0.4f, 0.42f, 0.58f, 1f);
+        private static readonly Color PanelFill = DungeonUITheme.SurfaceRaised;
+        private static readonly Color PauseAccent = DungeonUITheme.EmberDim;
+        private static readonly Color SettingsAccent = DungeonUITheme.RankEssence;
 
         public static PauseMenuUI Build()
         {
@@ -93,10 +93,10 @@ namespace DungeonCrawler.UI
             titleText.fontSize = 48;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleCenter;
-            titleText.color = Color.white;
+            titleText.color = DungeonUITheme.TextPrimary;
             titleText.text = "PAUSED";
 
-            BuildButton(card, font, "Resume", new Vector2(0, 60), Toggle);
+            BuildButton(card, font, "Resume", new Vector2(0, 60), Toggle, primary: true);
             BuildButton(card, font, "Settings", new Vector2(0, -10), OpenSettings);
             BuildButton(card, font, "Quit to Desktop", new Vector2(0, -80), QuitGame);
 
@@ -116,9 +116,22 @@ namespace DungeonCrawler.UI
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = size;
             var image = cardGO.GetComponent<Image>();
-            image.sprite = PanelSpriteFactory.CreateRoundedSprite(PanelFill, accent);
+            image.sprite = PanelSpriteFactory.CreateChamferedSprite(PanelFill, accent, 96, 16, 4);
             image.type = Image.Type.Sliced;
             image.color = Color.white;
+
+            // A small rotated ember crest sitting on the panel's top edge -- matches the
+            // kit's vendor/portal panels, which all carry the same diamond notch.
+            var crestGO = new GameObject("Crest", typeof(RectTransform), typeof(Image));
+            crestGO.transform.SetParent(cardGO.transform, false);
+            var crestRect = crestGO.GetComponent<RectTransform>();
+            crestRect.anchorMin = new Vector2(0.5f, 1f);
+            crestRect.anchorMax = new Vector2(0.5f, 1f);
+            crestRect.anchoredPosition = new Vector2(0, 9);
+            crestRect.sizeDelta = new Vector2(20, 20);
+            crestRect.localRotation = Quaternion.Euler(0, 0, 45);
+            crestGO.GetComponent<Image>().color = DungeonUITheme.Ember;
+
             return cardGO.transform;
         }
 
@@ -159,7 +172,7 @@ namespace DungeonCrawler.UI
             titleText.fontSize = 36;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleCenter;
-            titleText.color = Color.white;
+            titleText.color = DungeonUITheme.TextPrimary;
             titleText.text = "SETTINGS";
 
             var look = FindFirstObjectByType<FirstPersonLook>();
@@ -197,7 +210,7 @@ namespace DungeonCrawler.UI
             var labelText = labelGO.GetComponent<Text>();
             labelText.font = font;
             labelText.fontSize = 15;
-            labelText.color = Color.white;
+            labelText.color = DungeonUITheme.TextBody;
             labelText.alignment = TextAnchor.MiddleCenter;
             labelText.text = $"{labelPrefix}: {initial:0.0}";
 
@@ -218,7 +231,7 @@ namespace DungeonCrawler.UI
             bgRect.offsetMin = Vector2.zero;
             bgRect.offsetMax = Vector2.zero;
             var bgImage = bgGO.GetComponent<Image>();
-            bgImage.sprite = PanelSpriteFactory.CreateRoundedSprite(new Color(0.18f, 0.18f, 0.22f), new Color(0.35f, 0.35f, 0.42f), size: 32, radius: 8, borderThickness: 2);
+            bgImage.sprite = PanelSpriteFactory.CreateChamferedSprite(DungeonUITheme.Ground, DungeonUITheme.Border, 32, 6, 2);
             bgImage.type = Image.Type.Sliced;
             bgImage.color = Color.white;
 
@@ -235,7 +248,7 @@ namespace DungeonCrawler.UI
             var handleRect = handleGO.GetComponent<RectTransform>();
             handleRect.sizeDelta = new Vector2(14, 24);
             var handleImg = handleGO.GetComponent<Image>();
-            handleImg.color = new Color(0.7f, 0.8f, 0.95f);
+            handleImg.color = DungeonUITheme.EmberBright;
 
             var slider = sliderGO.GetComponent<Slider>();
             slider.handleRect = handleRect;
@@ -251,7 +264,12 @@ namespace DungeonCrawler.UI
             });
         }
 
-        private void BuildButton(Transform parent, Font font, string label, Vector2 anchoredPos, UnityEngine.Events.UnityAction onClick)
+        private Sprite primaryButtonSprite;
+
+        // Resume gets the primary (ember-outline) treatment -- it's the default/expected
+        // action; Settings/Quit/Back stay neutral, matching the kit's primary-vs-secondary
+        // button distinction (one warm accent action per screen, everything else quiet).
+        private void BuildButton(Transform parent, Font font, string label, Vector2 anchoredPos, UnityEngine.Events.UnityAction onClick, bool primary = false)
         {
             var go = new GameObject(label + "Button", typeof(RectTransform), typeof(Image), typeof(Button));
             go.transform.SetParent(parent, false);
@@ -260,10 +278,20 @@ namespace DungeonCrawler.UI
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = anchoredPos;
             rect.sizeDelta = new Vector2(280, 52);
-            if (buttonSprite == null)
-                buttonSprite = PanelSpriteFactory.CreateRoundedSprite(new Color(0.2f, 0.2f, 0.24f), new Color(0.42f, 0.42f, 0.5f), size: 64, radius: 10, borderThickness: 3);
+
             var btnImage = go.GetComponent<Image>();
-            btnImage.sprite = buttonSprite;
+            if (primary)
+            {
+                if (primaryButtonSprite == null)
+                    primaryButtonSprite = PanelSpriteFactory.CreateChamferedSprite(DungeonUITheme.EmberFill, DungeonUITheme.EmberDim, 64, 8, 3);
+                btnImage.sprite = primaryButtonSprite;
+            }
+            else
+            {
+                if (buttonSprite == null)
+                    buttonSprite = PanelSpriteFactory.CreateChamferedSprite(DungeonUITheme.Surface, DungeonUITheme.BorderBright, 64, 8, 3);
+                btnImage.sprite = buttonSprite;
+            }
             btnImage.type = Image.Type.Sliced;
             btnImage.color = Color.white;
 
@@ -277,8 +305,9 @@ namespace DungeonCrawler.UI
             var text = textGO.GetComponent<Text>();
             text.font = font;
             text.fontSize = 20;
+            text.fontStyle = primary ? FontStyle.Bold : FontStyle.Normal;
             text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
+            text.color = primary ? DungeonUITheme.EmberBright : DungeonUITheme.TextBody;
             text.text = label;
 
             go.GetComponent<Button>().onClick.AddListener(onClick);

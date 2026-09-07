@@ -256,8 +256,12 @@ namespace DungeonCrawler.UI
             rect.pivot = anchor;
             rect.anchoredPosition = anchoredPos;
             rect.sizeDelta = new Vector2(284, 104);
+            // White bake, not RuneCardIdle -- Refresh() re-tints Image.color between
+            // RuneCardIdle/RuneCardChosen every frame, and a non-white bake would
+            // multiply against that tint instead of showing the intended color (see
+            // PlayerHUD's identical fix for the ability-slot background).
             var image = cardGO.GetComponent<Image>();
-            image.sprite = PanelSpriteFactory.CreateChamferedSprite(RuneCardIdle, DungeonUITheme.Border, 64, 10, 3);
+            image.sprite = PanelSpriteFactory.CreateChamferedSprite(Color.white, DungeonUITheme.Border, 64, 10, 3);
             image.type = Image.Type.Sliced;
             image.color = RuneCardIdle;
             var button = cardGO.GetComponent<Button>();

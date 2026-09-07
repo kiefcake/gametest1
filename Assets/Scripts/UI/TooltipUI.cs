@@ -59,8 +59,8 @@ namespace DungeonCrawler.UI
             panelRect.pivot = new Vector2(0f, 1f);
             panelRect.sizeDelta = new Vector2(300, 90);
             var panelImage = panel.GetComponent<Image>();
-            panelImage.sprite = PanelSpriteFactory.CreateRoundedSprite(
-                new Color(0.06f, 0.06f, 0.08f, 0.98f), new Color(0.4f, 0.4f, 0.5f), size: 48, radius: 8, borderThickness: 2);
+            panelImage.sprite = PanelSpriteFactory.CreateChamferedSprite(
+                DungeonUITheme.Ground, DungeonUITheme.Border, 48, 10, 2);
             panelImage.type = Image.Type.Sliced;
             panelImage.color = Color.white;
 
@@ -75,7 +75,7 @@ namespace DungeonCrawler.UI
             text = textGO.GetComponent<Text>();
             text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = 15;
-            text.color = Color.white;
+            text.color = DungeonUITheme.TextBody;
             text.alignment = TextAnchor.UpperLeft;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Overflow;
