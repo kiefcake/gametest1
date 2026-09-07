@@ -35,15 +35,30 @@ namespace DungeonCrawler.World
         // it either. Same Humanoid archetype every other humanoid uses now.
         protected override void AttachVisual()
         {
-            var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+            var model = Resources.Load<GameObject>("Models/Enemies/training_dummy");
+            if (model == null)
             {
-                bodyColor = new Color(0.55f, 0.45f, 0.3f),
-                accentColor = new Color(0.75f, 0.65f, 0.4f),
-                scale = 1f, horns = false, weapon = false, hunched = false
-            });
-            visualRenderers = built.renderers;
-            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
-            spriteAnimator.bobHeight = 0.02f; // barely any bob -- an inanimate practice dummy, not a living creature
+                var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+                {
+                    bodyColor = new Color(0.55f, 0.45f, 0.3f),
+                    accentColor = new Color(0.75f, 0.65f, 0.4f),
+                    scale = 1f, horns = false, weapon = false, hunched = false
+                });
+                visualRenderers = built.renderers;
+                spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+                spriteAnimator.bobHeight = 0.02f; // barely any bob -- an inanimate practice dummy, not a living creature
+                spriteAnimator.bobSpeed = 1f;
+                return;
+            }
+
+            var modelGO = Instantiate(model, transform);
+            modelGO.name = "TrainingDummyModel";
+            modelGO.transform.localPosition = Vector3.zero;
+            modelGO.transform.localRotation = Quaternion.identity;
+
+            visualRenderers = modelGO.GetComponentsInChildren<Renderer>();
+            spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
+            spriteAnimator.bobHeight = 0.02f;
             spriteAnimator.bobSpeed = 1f;
         }
 

@@ -78,14 +78,29 @@ namespace DungeonCrawler.Enemies
         // reads as "queen of the snakes" rather than just a large trash mob.
         protected override void AttachVisual()
         {
-            var built = ProceduralMonster.Serpent(transform, new ProceduralMonster.SerpentSpec
+            var model = Resources.Load<GameObject>("Models/Bosses/stheno_snake_queen");
+            if (model == null)
             {
-                bodyColor = new Color(0.45f, 0.15f, 0.5f),
-                accentColor = new Color(0.95f, 0.85f, 0.2f),
-                scale = 2.2f, length = 9f
-            });
-            visualRenderers = built.renderers;
-            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+                var built = ProceduralMonster.Serpent(transform, new ProceduralMonster.SerpentSpec
+                {
+                    bodyColor = new Color(0.45f, 0.15f, 0.5f),
+                    accentColor = new Color(0.95f, 0.85f, 0.2f),
+                    scale = 2.2f, length = 9f
+                });
+                visualRenderers = built.renderers;
+                spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+                spriteAnimator.bobHeight = 0.05f;
+                spriteAnimator.bobSpeed = 1.2f;
+                return;
+            }
+
+            var modelGO = Instantiate(model, transform);
+            modelGO.name = "SthenoModel";
+            modelGO.transform.localPosition = Vector3.zero;
+            modelGO.transform.localRotation = Quaternion.identity;
+
+            visualRenderers = modelGO.GetComponentsInChildren<Renderer>();
+            spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.05f;
             spriteAnimator.bobSpeed = 1.2f;
         }

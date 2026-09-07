@@ -1,0 +1,24 @@
+newmtl ooze_dark_green
+Kd 0.3020 0.4510 0.2510
+Ks 0.2000 0.2000 0.2000
+Ns 70
+d 1.0000
+
+newmtl gleam_yellow_green
+Kd 0.7020 0.9020 0.3020
+Ks 0.2000 0.2000 0.2000
+Ns 130
+d 1.0000
+
+newmtl ooze_void
+Kd 0.1412 0.2000 0.1216
+Ks 0.2000 0.2000 0.2000
+Ns 30
+d 1.0000
+
+newmtl bog_glow
+Kd 0.7946 0.9451 0.3418
+Ks 0.2000 0.2000 0.2000
+Ns 100
+d 1.0000
+

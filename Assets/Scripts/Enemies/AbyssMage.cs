@@ -46,14 +46,29 @@ namespace DungeonCrawler.Enemies
         // reads as hovering/channeling rather than planted like a melee brute.
         protected override void AttachVisual()
         {
-            var built = ProceduralMonster.FloatingCaster(transform, new ProceduralMonster.FloatingSpec
+            var model = Resources.Load<GameObject>("Models/Enemies/abyss_mage");
+            if (model == null)
             {
-                robeColor = new Color(0.35f, 0.4f, 0.75f),
-                accentColor = new Color(0.7f, 0.85f, 1f),
-                scale = 1f, orb = true
-            });
-            visualRenderers = built.renderers;
-            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+                var built = ProceduralMonster.FloatingCaster(transform, new ProceduralMonster.FloatingSpec
+                {
+                    robeColor = new Color(0.35f, 0.4f, 0.75f),
+                    accentColor = new Color(0.7f, 0.85f, 1f),
+                    scale = 1f, orb = true
+                });
+                visualRenderers = built.renderers;
+                spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+                spriteAnimator.bobHeight = 0.08f;
+                spriteAnimator.bobSpeed = 2.2f;
+                return;
+            }
+
+            var modelGO = Instantiate(model, transform);
+            modelGO.name = "AbyssMageModel";
+            modelGO.transform.localPosition = Vector3.zero;
+            modelGO.transform.localRotation = Quaternion.identity;
+
+            visualRenderers = modelGO.GetComponentsInChildren<Renderer>();
+            spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.08f;
             spriteAnimator.bobSpeed = 2.2f;
         }

@@ -46,17 +46,32 @@ namespace DungeonCrawler.Enemies
 
         protected override void AttachVisual()
         {
-            var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+            var model = Resources.Load<GameObject>("Models/Enemies/imp_shaman");
+            if (model == null)
             {
-                bodyColor = new Color(0.5f, 0.2f, 0.55f),
-                accentColor = new Color(0.85f, 0.25f, 0.95f),
-                scale = 0.95f, horns = true, weapon = true, hunched = false
-            });
-            visualRenderers = built.renderers;
-            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+                var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+                {
+                    bodyColor = new Color(0.5f, 0.2f, 0.55f),
+                    accentColor = new Color(0.85f, 0.25f, 0.95f),
+                    scale = 0.95f, horns = true, weapon = true, hunched = false
+                });
+                visualRenderers = built.renderers;
+                spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+                spriteAnimator.bobHeight = 0.05f;
+                spriteAnimator.bobSpeed = 3f;
+                AttachLimbAnimator(built);
+                return;
+            }
+
+            var modelGO = Instantiate(model, transform);
+            modelGO.name = "ShamanModel";
+            modelGO.transform.localPosition = Vector3.zero;
+            modelGO.transform.localRotation = Quaternion.identity;
+
+            visualRenderers = modelGO.GetComponentsInChildren<Renderer>();
+            spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.05f;
             spriteAnimator.bobSpeed = 3f;
-            AttachLimbAnimator(built);
         }
 
         protected override void Update()

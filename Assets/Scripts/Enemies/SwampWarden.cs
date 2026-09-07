@@ -63,17 +63,32 @@ namespace DungeonCrawler.Enemies
         // ResolveSpecialAttack below) depends on visualRenderers being set here.
         protected override void AttachVisual()
         {
-            var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+            var model = Resources.Load<GameObject>("Models/Bosses/swamp_warden");
+            if (model == null)
             {
-                bodyColor = new Color(0.3f, 0.45f, 0.25f),
-                accentColor = new Color(0.55f, 0.4f, 0.15f),
-                scale = 2.1f, horns = true, weapon = false, hunched = false
-            });
-            visualRenderers = built.renderers;
-            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+                var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
+                {
+                    bodyColor = new Color(0.3f, 0.45f, 0.25f),
+                    accentColor = new Color(0.55f, 0.4f, 0.15f),
+                    scale = 2.1f, horns = true, weapon = false, hunched = false
+                });
+                visualRenderers = built.renderers;
+                spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+                spriteAnimator.bobHeight = 0.06f;
+                spriteAnimator.bobSpeed = 1.3f;
+                AttachLimbAnimator(built);
+                return;
+            }
+
+            var modelGO = Instantiate(model, transform);
+            modelGO.name = "SwampWardenModel";
+            modelGO.transform.localPosition = Vector3.zero;
+            modelGO.transform.localRotation = Quaternion.identity;
+
+            visualRenderers = modelGO.GetComponentsInChildren<Renderer>();
+            spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.06f;
             spriteAnimator.bobSpeed = 1.3f;
-            AttachLimbAnimator(built);
         }
 
         protected override void Update()

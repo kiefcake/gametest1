@@ -55,13 +55,28 @@ namespace DungeonCrawler.Enemies
         // SwampWarden's hulking Humanoid silhouette.
         protected override void AttachVisual()
         {
-            var built = ProceduralMonster.FloatingCaster(transform, new ProceduralMonster.FloatingSpec {
-                robeColor = new Color(0.55f, 0.75f, 0.95f),
-                accentColor = new Color(0.85f, 0.95f, 1f),
-                scale = 1.9f, orb = true
-            });
-            visualRenderers = built.renderers;
-            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+            var model = Resources.Load<GameObject>("Models/Bosses/frost_lich");
+            if (model == null)
+            {
+                var built = ProceduralMonster.FloatingCaster(transform, new ProceduralMonster.FloatingSpec {
+                    robeColor = new Color(0.55f, 0.75f, 0.95f),
+                    accentColor = new Color(0.85f, 0.95f, 1f),
+                    scale = 1.9f, orb = true
+                });
+                visualRenderers = built.renderers;
+                spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+                spriteAnimator.bobHeight = 0.07f;
+                spriteAnimator.bobSpeed = 1.6f;
+                return;
+            }
+
+            var modelGO = Instantiate(model, transform);
+            modelGO.name = "FrostLichModel";
+            modelGO.transform.localPosition = Vector3.zero;
+            modelGO.transform.localRotation = Quaternion.identity;
+
+            visualRenderers = modelGO.GetComponentsInChildren<Renderer>();
+            spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.07f;
             spriteAnimator.bobSpeed = 1.6f;
         }

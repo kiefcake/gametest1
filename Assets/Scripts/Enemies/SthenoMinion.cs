@@ -38,14 +38,29 @@ namespace DungeonCrawler.Enemies
 
         protected override void AttachVisual()
         {
-            var built = ProceduralMonster.Serpent(transform, new ProceduralMonster.SerpentSpec
+            var model = Resources.Load<GameObject>("Models/Enemies/stheno_pet");
+            if (model == null)
             {
-                bodyColor = new Color(0.5f, 0.4f, 0.2f),
-                accentColor = new Color(0.9f, 0.8f, 0.3f),
-                scale = 0.5f, length = 3f
-            });
-            visualRenderers = built.renderers;
-            spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+                var built = ProceduralMonster.Serpent(transform, new ProceduralMonster.SerpentSpec
+                {
+                    bodyColor = new Color(0.5f, 0.4f, 0.2f),
+                    accentColor = new Color(0.9f, 0.8f, 0.3f),
+                    scale = 0.5f, length = 3f
+                });
+                visualRenderers = built.renderers;
+                spriteAnimator = built.root.gameObject.AddComponent<SpriteAnimator>();
+                spriteAnimator.bobHeight = 0.04f;
+                spriteAnimator.bobSpeed = 6f;
+                return;
+            }
+
+            var modelGO = Instantiate(model, transform);
+            modelGO.name = "SthenoPetModel";
+            modelGO.transform.localPosition = Vector3.zero;
+            modelGO.transform.localRotation = Quaternion.identity;
+
+            visualRenderers = modelGO.GetComponentsInChildren<Renderer>();
+            spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.04f;
             spriteAnimator.bobSpeed = 6f;
         }
