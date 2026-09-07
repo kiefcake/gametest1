@@ -586,6 +586,16 @@ namespace DungeonCrawler
                 SpawnRangedImp(layout.TunnelPoint + new Vector3(0, 0, -2f));
                 SpawnTunnelLoot(layout.TunnelPoint + new Vector3(0, 0, 3f));
 
+                // Off-spine side branches (see DungeonLayout.BranchPoints) -- a random 1-4
+                // per generation, each a guaranteed loot pull plus a coinflip mini-ambush,
+                // so the extra corridors this dungeon now rolls also mean extra content,
+                // not just empty hallways.
+                foreach (var branch in layout.BranchPoints)
+                {
+                    SpawnTunnelLoot(branch);
+                    if (Random.value < 0.5f) SpawnImp(branch + new Vector3(1.5f, 0, 1.5f), false);
+                }
+
                 SpawnVaultLoot(layout.VaultPoint);
                 SpawnBoss(layout.BossPoint);
 
@@ -628,6 +638,12 @@ namespace DungeonCrawler
                 SpawnRangedImp(layout.TunnelPoint + new Vector3(0, 0, -2f));
                 SpawnTunnelLoot(layout.TunnelPoint + new Vector3(0, 0, 3f));
 
+                foreach (var branch in layout.BranchPoints)
+                {
+                    SpawnTunnelLoot(branch);
+                    if (Random.value < 0.5f) SpawnFrostSkeleton(branch + new Vector3(1.5f, 0, 1.5f));
+                }
+
                 SpawnVaultLoot(layout.VaultPoint);
                 SpawnFrostLichBoss(layout.BossPoint);
 
@@ -667,6 +683,12 @@ namespace DungeonCrawler
                 SpawnRangedImp(layout.TunnelPoint + new Vector3(0, 0, -2f));
                 SpawnTunnelLoot(layout.TunnelPoint + new Vector3(0, 0, 3f));
 
+                foreach (var branch in layout.BranchPoints)
+                {
+                    SpawnTunnelLoot(branch);
+                    if (Random.value < 0.5f) SpawnBogLurker(branch + new Vector3(1.5f, 0, 1.5f));
+                }
+
                 SpawnVaultLoot(layout.VaultPoint);
                 SpawnSwampWardenBoss(layout.BossPoint);
 
@@ -705,6 +727,12 @@ namespace DungeonCrawler
                 SpawnPitSnake(layout.TunnelPoint + new Vector3(1.5f, 0, -1.5f));
                 SpawnPitDartThrower(layout.TunnelPoint + new Vector3(0, 0, -2f));
                 SpawnTunnelLoot(layout.TunnelPoint + new Vector3(0, 0, 3f));
+
+                foreach (var branch in layout.BranchPoints)
+                {
+                    SpawnTunnelLoot(branch);
+                    if (Random.value < 0.5f) SpawnPitSnake(branch + new Vector3(1.5f, 0, 1.5f));
+                }
 
                 SpawnVaultLoot(layout.VaultPoint);
                 // Only present on the roughly 24% of generations that roll both a
@@ -748,6 +776,12 @@ namespace DungeonCrawler
                 SpawnWraithKnight(layout.TunnelPoint + new Vector3(1.5f, 0, -1.5f));
                 SpawnSpecterCaster(layout.TunnelPoint + new Vector3(0, 0, -2f));
                 SpawnTunnelLoot(layout.TunnelPoint + new Vector3(0, 0, 3f));
+
+                foreach (var branch in layout.BranchPoints)
+                {
+                    SpawnTunnelLoot(branch);
+                    if (Random.value < 0.5f) SpawnWraithKnight(branch + new Vector3(1.5f, 0, 1.5f));
+                }
 
                 SpawnVaultLoot(layout.VaultPoint);
                 if (layout.TreasureAlcovePoint.HasValue) SpawnTunnelLoot(layout.TreasureAlcovePoint.Value);
@@ -848,6 +882,15 @@ namespace DungeonCrawler
             player.statusController?.CleanseAll(); // walking back to the "safe" hub still poisoned/cursed defeats the point of it being safe
             TeleportPlayer(hubEntryPoint);
             RenderSettings.fog = false;
+
+            // Was only ever torn down lazily, at the START of the next PrepareDungeonRoot/
+            // EnterOpenWorld call -- meaning a dungeon's whole geometry, enemies, and
+            // hazards kept existing (and ticking) for as long as the player stayed in the
+            // hub or open world, not actually gone until they happened to enter something
+            // else. Destroying it right here, the moment they actually leave, is what
+            // "deleted after the player exits" means in practice.
+            if (dungeonRoot != null) Destroy(dungeonRoot);
+            dungeonRoot = null;
         }
 
         // Called by DownedRecovery once a downed solo player has waited out the recovery
@@ -862,6 +905,12 @@ namespace DungeonCrawler
             RunModifiers.ResetAll(); // this counts as the run ending -- see BeginRun's identical reset
             TeleportPlayer(hubEntryPoint);
             RenderSettings.fog = false;
+
+            // Same cleanup-on-exit fix as ReturnToHub -- a defeat sends the player back to
+            // the hub exactly like walking out the return gate does, so the dungeon they
+            // just died in shouldn't keep existing behind them either.
+            if (dungeonRoot != null) Destroy(dungeonRoot);
+            dungeonRoot = null;
         }
 
         // A CharacterController's internal collision state can lag one frame behind a

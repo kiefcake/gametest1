@@ -20,6 +20,15 @@ namespace DungeonCrawler.World
     // can place the player and enemies without hardcoding coordinates that would drift out
     // of sync with the geometry.
     //
+    // The five-room spine's order/lore is fixed (RoomInfoTable below), but the shape of
+    // each spine room (circular vs. rectangular) and a random 1-4 extra side branches
+    // (see BranchPoints/BuildBranchPocket) off it are re-rolled fresh every single call to
+    // Build() -- no two visits to "the same" dungeon are laid out identically, and every
+    // generation now has more corridors than the old fixed four-segment chain. This is a
+    // randomized spine-plus-branches generator, not a free-form room graph: GameBootstrap
+    // still reads exact named points (CombatPoint, VaultPoint, etc.) to place its precise
+    // per-room encounters, which a fully free topology would have to give up.
+    //
     // Builds in Awake(), not Start(): GameBootstrap does
     // `roomGO.AddComponent<DungeonLayout>()` and immediately reads the room points the
     // same frame. AddComponent() calls Awake() synchronously; Start() would not run until
@@ -32,17 +41,20 @@ namespace DungeonCrawler.World
         // their health bars, which is why boss health bars were invisible: BuildCeiling
         // put an opaque plane right through/above them. See BossRoomWidth/BossRoomWallHeight
         // below for the boss room's own further bump on top of this.
-        public float roomWidth = 38f;
-        public float roomDepth = 38f;
-        public float circularRoomRadius = 19f;
+        // Bumped again (38->48 footprint, 6->8 ceiling) per the user's "bigger, taller"
+        // request -- the previous bump only fixed a specific ceiling-vs-healthbar clipping
+        // bug, this one is a deliberate scale-up of the whole dungeon on top of that.
+        public float roomWidth = 48f;
+        public float roomDepth = 48f;
+        public float circularRoomRadius = 24f;
         public float platformHeight = 3.5f;
         public float platformHalfSize = 3f;
         // Widened from 4 -- generous margin against anything narrowing a passage (the
         // circular room's gap, an enemy or two standing in a doorway during a fight, any
         // future geometry tweak) actually blocking it shut.
-        public float corridorWidth = 6f;
-        public float corridorLength = 6f;
-        public float wallHeight = 6f;
+        public float corridorWidth = 7f;
+        public float corridorLength = 9f;
+        public float wallHeight = 8f;
         public float wallThickness = 0.5f;
 
         // Extra width/height ONLY for the boss room, layered on top of roomWidth/wallHeight
@@ -51,8 +63,8 @@ namespace DungeonCrawler.World
         // already fixes BossPoint's distance from the Vault room, so growing the boss room's
         // OWN depth would eat into the connecting corridor. Width and height have no such
         // spacing constraint, so the boss arena can go bigger in both without touching them.
-        private const float BossRoomWidth = 54f;
-        private const float BossRoomWallHeight = 10f;
+        private const float BossRoomWidth = 66f;
+        private const float BossRoomWallHeight = 13f;
 
         public Color entryFloorColor = new Color(0.14f, 0.14f, 0.18f);
         public Color combatFloorColor = new Color(0.15f, 0.05f, 0.08f);
@@ -162,6 +174,14 @@ namespace DungeonCrawler.World
         // bonus reward there.
         public Vector3? TreasureAlcovePoint { get; private set; }
 
+        // Off-spine side pockets (see BuildBranchPocket) -- a random 1-4 per generation,
+        // each its own extra corridor + room branching east off a spine room that happened
+        // to roll rectangular. This plus the shape rolls above is what makes a dungeon
+        // "randomly generated" rather than a fixed template: room count on the branch path
+        // varies, branch position/size varies, and GameBootstrap decides per-theme what
+        // (loot, an ambush, or both) shows up in each one.
+        public List<Vector3> BranchPoints { get; private set; } = new List<Vector3>();
+
         // Explicit call instead of building in Awake() -- GameBootstrap needs to hand this
         // a theme (which room/enemy content to build) before generation runs, the same
         // reason PlayerCharacter.Initialize() exists instead of doing everything in Awake.
@@ -179,7 +199,15 @@ namespace DungeonCrawler.World
             VaultPoint = new Vector3(0, 0, RoomSpacing * 3f);
             BossPoint = new Vector3(0, 0, RoomSpacing * 4f);
 
-            BuildRoom(EntryPoint, entryFloorColor, openNorth: true, openSouth: false, hazardous: false);
+            BranchPoints = new List<Vector3>();
+
+            // Entry is always rectangular (see its BuildRoom call below) and has nothing
+            // else competing for its east wall -- an easy, always-eligible extra branch,
+            // rolled independently of the guaranteed Combat2 one below so the very first
+            // room doesn't get one every single time.
+            bool entryBranch = Random.value < 0.45f;
+            BuildRoom(EntryPoint, entryFloorColor, openNorth: true, openSouth: false, hazardous: false, eastBranch: entryBranch);
+            if (entryBranch) BranchPoints.Add(BuildBranchPocket(EntryPoint));
 
             // Procedural shape roll -- Combat and Vault each independently pick circular or
             // rectangular per generation, so no two runs of the same dungeon look
@@ -188,28 +216,42 @@ namespace DungeonCrawler.World
             // support the two opposite (north/south) corridor gaps this generator ever
             // asks of them -- extending that wall-ring math to a third, differently-shaped
             // gap isn't worth the risk for one room slot.
-            if (Random.value < 0.5f)
+            bool combatCircular = Random.value < 0.5f;
+            // A branch needs a real east-wall gap (see BuildBranchPocket), same
+            // rectangular-only constraint as the treasure alcove's west gap below.
+            bool combatBranch = !combatCircular && Random.value < 0.65f;
+            if (combatCircular)
             {
                 BuildCircularRoom(CombatPoint, combatFloorColor, circularRoomRadius);
             }
             else
             {
-                BuildRoom(CombatPoint, combatFloorColor, openNorth: true, openSouth: true, hazardous: true, platform: true, platformIsPrimary: true);
+                BuildRoom(CombatPoint, combatFloorColor, openNorth: true, openSouth: true, hazardous: true, platform: true, platformIsPrimary: true, eastBranch: combatBranch);
             }
+            if (combatBranch) BranchPoints.Add(BuildBranchPocket(CombatPoint));
             BuildRoomEntryTrigger(CombatPoint, RoomSlot.Combat);
 
-            BuildRoom(Combat2Point, combatFloorColor, openNorth: true, openSouth: true, hazardous: true, westTunnel: true, platform: true);
+            // Combat2 always stays rectangular, which makes it (like Entry) an always-
+            // eligible branch host -- between the two of them, a generation is never more
+            // than a coin flip away from having at least one side branch even if Combat and
+            // Vault both happen to roll circular.
+            BuildRoom(Combat2Point, combatFloorColor, openNorth: true, openSouth: true, hazardous: true, westTunnel: true, platform: true, eastBranch: true);
+            BranchPoints.Add(BuildBranchPocket(Combat2Point));
             BuildRoomEntryTrigger(Combat2Point, RoomSlot.Combat2);
 
             bool vaultCircular = Random.value < 0.5f;
             // A treasure alcove needs a real west-wall gap (see BuildTreasureAlcove), which
-            // only a rectangular Vault can offer -- same reasoning as Combat2 above.
+            // only a rectangular Vault can offer -- same reasoning as Combat2 above. The
+            // branch below uses the EAST wall instead, so a rectangular Vault can roll both
+            // a treasure alcove AND a branch in the same generation with no conflict.
             bool treasureAlcove = !vaultCircular && Random.value < 0.4f;
+            bool vaultBranch = !vaultCircular && Random.value < 0.65f;
             if (vaultCircular)
                 BuildCircularRoom(VaultPoint, vaultFloorColor, circularRoomRadius, buildSniperPlatform: false);
             else
-                BuildRoom(VaultPoint, vaultFloorColor, openNorth: true, openSouth: true, hazardous: true, westTunnel: treasureAlcove);
+                BuildRoom(VaultPoint, vaultFloorColor, openNorth: true, openSouth: true, hazardous: true, westTunnel: treasureAlcove, eastBranch: vaultBranch);
             if (treasureAlcove) TreasureAlcovePoint = BuildTreasureAlcove(VaultPoint);
+            if (vaultBranch) BranchPoints.Add(BuildBranchPocket(VaultPoint));
             BuildRoomEntryTrigger(VaultPoint, RoomSlot.Vault);
 
             // Wider and taller than every other room -- a grander arena, and enough
@@ -323,7 +365,7 @@ namespace DungeonCrawler.World
             ceilingColor = new Color(0.05f, 0.03f, 0.07f);
         }
 
-        private void BuildRoom(Vector3 center, Color floorColor, bool openNorth, bool openSouth, bool hazardous, bool westTunnel = false, bool platform = false, bool platformIsPrimary = false)
+        private void BuildRoom(Vector3 center, Color floorColor, bool openNorth, bool openSouth, bool hazardous, bool westTunnel = false, bool platform = false, bool platformIsPrimary = false, bool eastBranch = false)
         {
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "RoomFloor";
@@ -332,9 +374,15 @@ namespace DungeonCrawler.World
             floor.transform.localScale = new Vector3(roomWidth / 10f, 1f, roomDepth / 10f);
             SetColor(floor, floorColor);
 
-            // East/west walls are always solid, except a room flagged westTunnel -- doors
-            // otherwise only ever open north/south, toward the next room in the line.
-            BuildWall(center + new Vector3(roomWidth / 2f, wallHeight / 2f, 0), new Vector3(wallThickness, wallHeight, roomDepth));
+            // East/west walls are always solid, except a room flagged westTunnel (vertical
+            // tunnel ramp / treasure alcove) or eastBranch (a side-branch pocket, see
+            // BuildBranchPocket) -- doors otherwise only ever open north/south, toward the
+            // next room in the line. The two gaps sit on opposite walls, so a room can take
+            // both at once with no conflict.
+            if (eastBranch)
+                BuildEastWallWithGap(center);
+            else
+                BuildWall(center + new Vector3(roomWidth / 2f, wallHeight / 2f, 0), new Vector3(wallThickness, wallHeight, roomDepth));
             if (westTunnel)
                 BuildWestWallWithGap(center);
             else
@@ -806,7 +854,12 @@ namespace DungeonCrawler.World
             stubFloor.name = "AlcoveStubFloor";
             stubFloor.transform.SetParent(transform);
             stubFloor.transform.position = stubCenter;
-            stubFloor.transform.localScale = new Vector3(corridorWidth / 10f, 1f, stubLength / 10f);
+            // The stub runs east-west (along X), so X carries its LENGTH and Z its WIDTH --
+            // opposite of BuildCorridor's north-south convention where X is width. This was
+            // built with the axes swapped (a real, if subtle, bug: the floor undersized the
+            // walkable width by about a unit and didn't fully cover the stub's own length),
+            // unnoticed because corridorWidth and stubLength happened to be close in value.
+            stubFloor.transform.localScale = new Vector3(stubLength / 10f, 1f, corridorWidth / 10f);
             SetColor(stubFloor, corridorFloorColor);
             BuildWall(stubCenter + new Vector3(0, wallHeight / 2f, corridorWidth / 2f), new Vector3(stubLength, wallHeight, wallThickness));
             BuildWall(stubCenter + new Vector3(0, wallHeight / 2f, -corridorWidth / 2f), new Vector3(stubLength, wallHeight, wallThickness));
@@ -850,6 +903,77 @@ namespace DungeonCrawler.World
             }
 
             return alcoveCenter;
+        }
+
+        // A same-level branch off a room's EAST wall -- the "more corridors, randomly
+        // generated" side content: an extra corridor + pocket room that isn't on the
+        // critical path, sized randomly (9-13 unit half-width, 5-8 unit connecting stub)
+        // so no two branches look identical. Structurally the mirror image of
+        // BuildTreasureAlcove (which does the same thing off the WEST wall) but kept as
+        // its own method rather than shared: TreasureAlcove is deliberately small and
+        // loot-only with a fixed size, this is bigger, randomly sized, and can also host an
+        // ambush (see GameBootstrap's per-theme Enter*Dungeon loop over BranchPoints).
+        // Returns the pocket's center so the caller can populate it.
+        private Vector3 BuildBranchPocket(Vector3 roomCenter)
+        {
+            float stubLength = Random.Range(5f, 8f);
+            float pocketHalf = Random.Range(9f, 13f);
+
+            Vector3 gapOuter = roomCenter + new Vector3(roomWidth / 2f, 0, 0);
+            Vector3 stubCenter = gapOuter + new Vector3(stubLength / 2f, 0, 0);
+            Vector3 pocketCenter = gapOuter + new Vector3(stubLength + pocketHalf, 0, 0);
+
+            var stubFloor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            stubFloor.name = "BranchStubFloor";
+            stubFloor.transform.SetParent(transform);
+            stubFloor.transform.position = stubCenter;
+            stubFloor.transform.localScale = new Vector3(stubLength / 10f, 1f, corridorWidth / 10f);
+            SetColor(stubFloor, corridorFloorColor);
+            BuildWall(stubCenter + new Vector3(0, wallHeight / 2f, corridorWidth / 2f), new Vector3(stubLength, wallHeight, wallThickness));
+            BuildWall(stubCenter + new Vector3(0, wallHeight / 2f, -corridorWidth / 2f), new Vector3(stubLength, wallHeight, wallThickness));
+
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            floor.name = "BranchPocketFloor";
+            floor.transform.SetParent(transform);
+            floor.transform.position = pocketCenter;
+            floor.transform.localScale = new Vector3(pocketHalf * 2f / 10f, 1f, pocketHalf * 2f / 10f);
+            SetColor(floor, combatFloorColor);
+
+            BuildWall(pocketCenter + new Vector3(0, wallHeight / 2f, pocketHalf), new Vector3(pocketHalf * 2f, wallHeight, wallThickness));
+            BuildWall(pocketCenter + new Vector3(0, wallHeight / 2f, -pocketHalf), new Vector3(pocketHalf * 2f, wallHeight, wallThickness));
+            // East wall (facing away from the room) is solid; the gap sits on the west
+            // side, facing back toward the corridor -- opposite of BuildTreasureAlcove's
+            // alcove, which sits west of its room and so gaps its EAST side instead.
+            BuildWall(pocketCenter + new Vector3(pocketHalf, wallHeight / 2f, 0), new Vector3(wallThickness, wallHeight, pocketHalf * 2f));
+
+            float sideLength = pocketHalf - corridorWidth / 2f;
+            if (sideLength > 0f)
+            {
+                float sideOffset = (corridorWidth / 2f + pocketHalf) / 2f;
+                BuildWall(pocketCenter + new Vector3(-pocketHalf, wallHeight / 2f, sideOffset), new Vector3(wallThickness, wallHeight, sideLength));
+                BuildWall(pocketCenter + new Vector3(-pocketHalf, wallHeight / 2f, -sideOffset), new Vector3(wallThickness, wallHeight, sideLength));
+            }
+
+            if (buildCeiling)
+            {
+                var ceiling = GameObject.CreatePrimitive(PrimitiveType.Plane);
+                ceiling.name = "BranchPocketCeiling";
+                var ceilCol = ceiling.GetComponent<Collider>();
+                if (ceilCol != null) Destroy(ceilCol);
+                ceiling.transform.SetParent(transform);
+                ceiling.transform.position = pocketCenter + new Vector3(0, wallHeight, 0);
+                ceiling.transform.rotation = Quaternion.Euler(180, 0, 0);
+                ceiling.transform.localScale = new Vector3(pocketHalf * 2f / 10f, 1f, pocketHalf * 2f / 10f);
+                SetColor(ceiling, ceilingColor);
+            }
+
+            if (buildTorches)
+            {
+                BuildTorch(pocketCenter + new Vector3(pocketHalf - 1.5f, 1.1f, pocketHalf - 1.5f));
+                BuildTorch(pocketCenter + new Vector3(-(pocketHalf - 1.5f), 1.1f, -(pocketHalf - 1.5f)));
+            }
+
+            return pocketCenter;
         }
 
         // A flat, dark ceiling reads better than leaving the room open to the void above --
@@ -966,6 +1090,19 @@ namespace DungeonCrawler.World
         private void BuildWestWallWithGap(Vector3 roomCenter)
         {
             Vector3 wallCenter = roomCenter + new Vector3(-roomWidth / 2f, wallHeight / 2f, 0);
+            float sideLength = (roomDepth - corridorWidth) / 2f;
+            if (sideLength <= 0f) return;
+            float sideOffset = (corridorWidth + sideLength) / 2f;
+            BuildWall(wallCenter + new Vector3(0, 0, sideOffset), new Vector3(wallThickness, wallHeight, sideLength));
+            BuildWall(wallCenter + new Vector3(0, 0, -sideOffset), new Vector3(wallThickness, wallHeight, sideLength));
+        }
+
+        // East-side mirror of BuildWestWallWithGap -- what BuildRoom's new eastBranch flag
+        // uses to open a gap for BuildBranchPocket's connecting corridor, exactly the same
+        // two-segment-with-a-gap shape just on the opposite wall.
+        private void BuildEastWallWithGap(Vector3 roomCenter)
+        {
+            Vector3 wallCenter = roomCenter + new Vector3(roomWidth / 2f, wallHeight / 2f, 0);
             float sideLength = (roomDepth - corridorWidth) / 2f;
             if (sideLength <= 0f) return;
             float sideOffset = (corridorWidth + sideLength) / 2f;
