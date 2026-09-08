@@ -596,6 +596,15 @@ namespace DungeonCrawler
                     if (Random.value < 0.5f) SpawnImp(branch + new Vector3(1.5f, 0, 1.5f), false);
                 }
 
+                // On-path waypoint room (see DungeonLayout.WaypointPoints) -- 0 or 1 per
+                // generation, a full encounter since it's a real room on the route to the
+                // boss rather than a dead-end pocket.
+                foreach (var waypoint in layout.WaypointPoints)
+                {
+                    SpawnImp(waypoint + new Vector3(2f, 0, 1.5f), false);
+                    SpawnRangedImp(waypoint + new Vector3(-2f, 0, -1.5f));
+                }
+
                 SpawnVaultLoot(layout.VaultPoint);
                 SpawnBoss(layout.BossPoint);
 
@@ -644,6 +653,12 @@ namespace DungeonCrawler
                     if (Random.value < 0.5f) SpawnFrostSkeleton(branch + new Vector3(1.5f, 0, 1.5f));
                 }
 
+                foreach (var waypoint in layout.WaypointPoints)
+                {
+                    SpawnFrostSkeleton(waypoint + new Vector3(2f, 0, 1.5f));
+                    SpawnRangedImp(waypoint + new Vector3(-2f, 0, -1.5f));
+                }
+
                 SpawnVaultLoot(layout.VaultPoint);
                 SpawnFrostLichBoss(layout.BossPoint);
 
@@ -689,6 +704,12 @@ namespace DungeonCrawler
                     if (Random.value < 0.5f) SpawnBogLurker(branch + new Vector3(1.5f, 0, 1.5f));
                 }
 
+                foreach (var waypoint in layout.WaypointPoints)
+                {
+                    SpawnBogLurker(waypoint + new Vector3(2f, 0, 1.5f));
+                    SpawnRangedImp(waypoint + new Vector3(-2f, 0, -1.5f));
+                }
+
                 SpawnVaultLoot(layout.VaultPoint);
                 SpawnSwampWardenBoss(layout.BossPoint);
 
@@ -732,6 +753,12 @@ namespace DungeonCrawler
                 {
                     SpawnTunnelLoot(branch);
                     if (Random.value < 0.5f) SpawnPitSnake(branch + new Vector3(1.5f, 0, 1.5f));
+                }
+
+                foreach (var waypoint in layout.WaypointPoints)
+                {
+                    SpawnPitSnake(waypoint + new Vector3(2f, 0, 1.5f));
+                    SpawnPitDartThrower(waypoint + new Vector3(-2f, 0, -1.5f));
                 }
 
                 SpawnVaultLoot(layout.VaultPoint);
@@ -781,6 +808,12 @@ namespace DungeonCrawler
                 {
                     SpawnTunnelLoot(branch);
                     if (Random.value < 0.5f) SpawnWraithKnight(branch + new Vector3(1.5f, 0, 1.5f));
+                }
+
+                foreach (var waypoint in layout.WaypointPoints)
+                {
+                    SpawnWraithKnight(waypoint + new Vector3(2f, 0, 1.5f));
+                    SpawnSpecterCaster(waypoint + new Vector3(-2f, 0, -1.5f));
                 }
 
                 SpawnVaultLoot(layout.VaultPoint);

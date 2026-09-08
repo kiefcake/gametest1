@@ -102,6 +102,95 @@ namespace DungeonCrawler.World
         // per room.
         private enum RoomSlot { Entry, Combat, Combat2, Vault, Boss }
 
+        // Compass direction for the free-form spine path Build() lays out below --
+        // North/South/East/West map onto this file's existing world-space convention
+        // (+Z/-Z/+X/-X), the same axes BuildWallOrDoor (Z) and BuildEastWallWithGap/
+        // BuildWestWallWithGap (X) already build gaps on.
+        private enum Dir { North, East, South, West }
+        private static Dir Opposite(Dir d) => (Dir)(((int)d + 2) % 4);
+        private static Vector2Int CellOffset(Dir d) => d switch
+        {
+            Dir.North => new Vector2Int(0, 1),
+            Dir.South => new Vector2Int(0, -1),
+            Dir.East => new Vector2Int(1, 0),
+            Dir.West => new Vector2Int(-1, 0),
+            _ => Vector2Int.zero,
+        };
+
+        // Picks a random compass direction for the next hop of the spine's random walk
+        // -- never the exact reverse of the incoming direction (no instant backtrack
+        // onto the room you just left), never one that would land on an already-used
+        // grid cell (no self-intersecting spine folding a room on top of another), and
+        // never one `allowed` rejects (used to keep Combat2's and Vault's own west wall
+        // permanently free for the vertical tunnel / treasure alcove they always try to
+        // build there -- see the constraint derivation in Build()'s own comment).
+        // Falls back to relaxing only the occupied-cell check if truly nothing
+        // qualifies, which for a 4-6-hop path on an open grid essentially never fires.
+        private static Dir PickPathDir(Vector2Int fromCell, Dir? incoming, HashSet<Vector2Int> occupied, System.Func<Dir, bool> allowed)
+        {
+            var order = new List<Dir> { Dir.North, Dir.East, Dir.South, Dir.West };
+            for (int i = order.Count - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                (order[i], order[j]) = (order[j], order[i]);
+            }
+            foreach (var d in order)
+            {
+                if (incoming.HasValue && d == Opposite(incoming.Value)) continue;
+                if (!allowed(d)) continue;
+                if (IsBlocked(fromCell + CellOffset(d), fromCell, occupied)) continue;
+                return d;
+            }
+            foreach (var d in order)
+            {
+                if (incoming.HasValue && d == Opposite(incoming.Value)) continue;
+                if (!allowed(d)) continue;
+                return d;
+            }
+            return incoming ?? Dir.North;
+        }
+
+        // A candidate cell is blocked if it's already used, OR if it's orthogonally
+        // adjacent to any OTHER already-placed room (any neighbor except `fromCell`,
+        // the room this hop is actually leaving). Without the second half of this check,
+        // a bent path can legally place two rooms that are nowhere near each other IN
+        // THE PATH SEQUENCE into physically adjacent grid cells -- e.g. Entry and Boss
+        // ending up one cell apart purely by coincidence of which directions got rolled.
+        // That's not a corridor (neither room's path actually uses that shared wall), so
+        // nothing opens a door there -- but a side feature that assumes "the space next
+        // to me is empty" (BuildBranchPocket's east branch, BuildVerticalTunnel/
+        // BuildTreasureAlcove's west attachment) has no way to know a whole other room
+        // now sits exactly where it's about to build into. This buffer-zone rule is what
+        // guarantees every room's "unused" walls actually face empty space, not a
+        // stranger's wall a few units away.
+        private static bool IsBlocked(Vector2Int cell, Vector2Int fromCell, HashSet<Vector2Int> occupied)
+        {
+            if (occupied.Contains(cell)) return true;
+            foreach (Dir d in new[] { Dir.North, Dir.South, Dir.East, Dir.West })
+            {
+                Vector2Int neighbor = cell + CellOffset(d);
+                if (neighbor == fromCell) continue;
+                if (occupied.Contains(neighbor)) return true;
+            }
+            return false;
+        }
+
+        // A room's actual wall openings are just "which directions does the path touch
+        // here" -- at most two (one incoming, one outgoing; Entry/Boss only ever have
+        // one of the two). Computing this generically, rather than re-deriving by hand
+        // per spine slot, is what lets Build() safely ask "is this room's east/west
+        // still free for a branch/tunnel/alcove" without trusting hand-algebra to have
+        // covered every path shape (including the optional waypoint detour) correctly.
+        private static void OpenFlags(Dir? a, Dir? b, out bool north, out bool south, out bool east, out bool west)
+        {
+            north = a == Dir.North || b == Dir.North;
+            south = a == Dir.South || b == Dir.South;
+            east = a == Dir.East || b == Dir.East;
+            west = a == Dir.West || b == Dir.West;
+        }
+
+        private static Vector3 CellToWorld(Vector2Int cell, float pitch) => new Vector3(cell.x * pitch, 0, cell.y * pitch);
+
         private readonly struct RoomInfo
         {
             public readonly string name;
@@ -182,6 +271,13 @@ namespace DungeonCrawler.World
         // (loot, an ambush, or both) shows up in each one.
         public List<Vector3> BranchPoints { get; private set; } = new List<Vector3>();
 
+        // An extra on-critical-path room, sometimes inserted between Combat2 and Vault
+        // (see Build()) -- unlike BranchPoints (dead-end side pockets), a waypoint sits
+        // directly on the route to the boss, so it's a plain full-size Combat-flavored
+        // room rather than a small alcove. 0 or 1 per generation today; a real room
+        // count beyond the fixed five-slot spine, however small a step.
+        public List<Vector3> WaypointPoints { get; private set; } = new List<Vector3>();
+
         // Explicit call instead of building in Awake() -- GameBootstrap needs to hand this
         // a theme (which room/enemy content to build) before generation runs, the same
         // reason PlayerCharacter.Initialize() exists instead of doing everything in Awake.
@@ -193,63 +289,154 @@ namespace DungeonCrawler.World
             else if (theme == DungeonTheme.SnakePit) ApplySnakePitPalette();
             else if (theme == DungeonTheme.WraithboundSanctum) ApplyWraithboundPalette();
 
-            EntryPoint = Vector3.zero;
-            CombatPoint = new Vector3(0, 0, RoomSpacing);
-            Combat2Point = new Vector3(0, 0, RoomSpacing * 2f);
-            VaultPoint = new Vector3(0, 0, RoomSpacing * 3f);
-            BossPoint = new Vector3(0, 0, RoomSpacing * 4f);
-
             BranchPoints = new List<Vector3>();
+            WaypointPoints = new List<Vector3>();
 
-            // Entry is always rectangular (see its BuildRoom call below) and has nothing
-            // else competing for its east wall -- an easy, always-eligible extra branch,
-            // rolled independently of the guaranteed Combat2 one below so the very first
-            // room doesn't get one every single time.
-            bool entryBranch = Random.value < 0.45f;
-            BuildRoom(EntryPoint, entryFloorColor, openNorth: true, openSouth: false, hazardous: false, eastBranch: entryBranch);
+            // The spine's five named rooms keep their fixed roles/order and lore (Entry
+            // -> Combat -> Combat2 -> Vault -> Boss, same RoomInfoTable text as always),
+            // but their grid layout is a real random walk now, not a straight line: each
+            // hop picks a random compass direction, never an instant backtrack onto the
+            // room just left, never one that would fold the spine back onto an
+            // already-placed room. Two directions stay reserved throughout -- Combat2's
+            // west (always tries to grow a vertical tunnel there) and Vault's west
+            // (always tries to roll a treasure alcove there) -- via the `allowed`
+            // constraints on the PickPathDir calls below. Everything downstream (branch
+            // eligibility, circular-room eligibility, the boss room's single door) is
+            // computed generically from the ACTUAL chosen directions afterward (see
+            // OpenFlags), rather than trusted from this derivation -- a mistake here
+            // would show up as a missing feature, never as a room missing a wall it
+            // structurally needs.
+            Vector2Int entryCell = Vector2Int.zero;
+            var occupied = new HashSet<Vector2Int> { entryCell };
+
+            Dir d1 = PickPathDir(entryCell, null, occupied, d => true);
+            Vector2Int combatCell = entryCell + CellOffset(d1);
+            occupied.Add(combatCell);
+
+            Dir d2 = PickPathDir(combatCell, d1, occupied, d => d != Dir.East); // keep Combat2's west free
+            Vector2Int combat2Cell = combatCell + CellOffset(d2);
+            occupied.Add(combat2Cell);
+
+            // A 40% chance of one extra plain Combat-flavored room wedged between
+            // Combat2 and Vault -- WaypointPoints, not BranchPoints: this sits ON the
+            // route to the boss instead of a dead-end pocket off it, real room count
+            // beyond the fixed five-slot spine rather than just bent corridors.
+            bool hasWaypoint = Random.value < 0.4f;
+            Dir intoVaultDir;
+            Vector2Int vaultCell;
+            Vector2Int waypointCell = default;
+            Dir waypointIncoming = default, waypointOutgoing = default;
+
+            if (hasWaypoint)
+            {
+                Dir stepA = PickPathDir(combat2Cell, d2, occupied, d => d != Dir.West); // leaving Combat2 -- keep its west free
+                waypointCell = combat2Cell + CellOffset(stepA);
+                occupied.Add(waypointCell);
+                Dir stepB = PickPathDir(waypointCell, stepA, occupied, d => d != Dir.East); // arriving at Vault -- keep its west free
+                vaultCell = waypointCell + CellOffset(stepB);
+                occupied.Add(vaultCell);
+
+                waypointIncoming = stepA;
+                waypointOutgoing = stepB;
+                intoVaultDir = stepB;
+            }
+            else
+            {
+                Dir d3 = PickPathDir(combat2Cell, d2, occupied, d => d == Dir.North || d == Dir.South); // direct hop -- protects Combat2's AND Vault's west at once
+                vaultCell = combat2Cell + CellOffset(d3);
+                occupied.Add(vaultCell);
+                intoVaultDir = d3;
+            }
+
+            // Boss is the one room whose width gets temporarily bumped for its own build
+            // (see BossRoomWidth below) while its DEPTH stays standard specifically so
+            // Z-axis spacing (roomDepth + corridorLength) still lines up -- an X-axis
+            // approach would need WIDTH-based spacing instead, which `pitch` below can't
+            // give it without knowing in advance that the next room is Boss. Restricting
+            // this last hop to North/South (exactly like the old fixed spine always was)
+            // sidesteps that mismatch entirely rather than trying to special-case pitch
+            // for one room; it also automatically keeps Vault's west free (North/South
+            // never equals West), so no separate check is needed for that anymore.
+            Dir d4 = PickPathDir(vaultCell, intoVaultDir, occupied, d => d == Dir.North || d == Dir.South);
+            Vector2Int bossCell = vaultCell + CellOffset(d4);
+            occupied.Add(bossCell);
+
+            float pitch = roomWidth + corridorLength; // roomWidth == roomDepth, so one square grid pitch works regardless of hop direction
+            EntryPoint = CellToWorld(entryCell, pitch);
+            CombatPoint = CellToWorld(combatCell, pitch);
+            Combat2Point = CellToWorld(combat2Cell, pitch);
+            VaultPoint = CellToWorld(vaultCell, pitch);
+            BossPoint = CellToWorld(bossCell, pitch);
+            Vector3 waypointPos = hasWaypoint ? CellToWorld(waypointCell, pitch) : Vector3.zero;
+
+            OpenFlags(null, d1, out bool entryN, out bool entryS, out bool entryE, out bool entryW);
+            OpenFlags(Opposite(d1), d2, out bool combatN, out bool combatS, out bool combatE, out bool combatW);
+            Dir combat2Outgoing = hasWaypoint ? waypointIncoming : intoVaultDir;
+            OpenFlags(Opposite(d2), combat2Outgoing, out bool combat2N, out bool combat2S, out bool combat2E, out bool combat2W);
+            OpenFlags(Opposite(intoVaultDir), d4, out bool vaultN, out bool vaultS, out bool vaultE, out bool vaultW);
+            OpenFlags(Opposite(d4), null, out bool bossN, out bool bossS, out bool bossE, out bool bossW);
+
+            // Entry is always rectangular; per OpenFlags above it only ever needs its
+            // east wall for the path if the very first hop happened to go east, which
+            // leaves it free to host a branch the rest of the time.
+            bool entryBranch = !entryE && Random.value < 0.45f;
+            BuildRoom(EntryPoint, entryFloorColor, openNorth: entryN, openSouth: entryS, hazardous: false, openEast: entryE, openWest: entryW, eastBranch: entryBranch);
             if (entryBranch) BranchPoints.Add(BuildBranchPocket(EntryPoint));
 
-            // Procedural shape roll -- Combat and Vault each independently pick circular or
-            // rectangular per generation, so no two runs of the same dungeon look
-            // identical. Combat2 always stays rectangular: it structurally needs the west
-            // tunnel gap plus a platform in a specific corner, and circular rooms only
-            // support the two opposite (north/south) corridor gaps this generator ever
-            // asks of them -- extending that wall-ring math to a third, differently-shaped
-            // gap isn't worth the risk for one room slot.
-            bool combatCircular = Random.value < 0.5f;
-            // A branch needs a real east-wall gap (see BuildBranchPocket), same
-            // rectangular-only constraint as the treasure alcove's west gap below.
-            bool combatBranch = !combatCircular && Random.value < 0.65f;
+            // Procedural shape roll -- Combat and Vault each independently pick circular
+            // or rectangular per generation, so no two runs of the same dungeon look
+            // identical. Circular rooms only ever open two OPPOSITE gaps (see
+            // BuildCircularWallRing), so a room whose real path connections need its
+            // east or west wall this generation can't roll circular at all -- computed
+            // here from the actual OpenFlags result, not assumed the way the old
+            // straight-line spine could get away with.
+            bool combatCanBeCircular = !combatE && !combatW;
+            bool combatCircular = combatCanBeCircular && Random.value < 0.5f;
+            bool combatBranch = !combatCircular && !combatE && Random.value < 0.65f;
             if (combatCircular)
             {
                 BuildCircularRoom(CombatPoint, combatFloorColor, circularRoomRadius);
             }
             else
             {
-                BuildRoom(CombatPoint, combatFloorColor, openNorth: true, openSouth: true, hazardous: true, platform: true, platformIsPrimary: true, eastBranch: combatBranch);
+                BuildRoom(CombatPoint, combatFloorColor, openNorth: combatN, openSouth: combatS, hazardous: true, openEast: combatE, openWest: combatW, platform: true, platformIsPrimary: true, eastBranch: combatBranch);
             }
             if (combatBranch) BranchPoints.Add(BuildBranchPocket(CombatPoint));
             BuildRoomEntryTrigger(CombatPoint, RoomSlot.Combat);
 
-            // Combat2 always stays rectangular, which makes it (like Entry) an always-
-            // eligible branch host -- between the two of them, a generation is never more
-            // than a coin flip away from having at least one side branch even if Combat and
-            // Vault both happen to roll circular.
-            BuildRoom(Combat2Point, combatFloorColor, openNorth: true, openSouth: true, hazardous: true, westTunnel: true, platform: true, eastBranch: true);
-            BranchPoints.Add(BuildBranchPocket(Combat2Point));
+            // Combat2 stays rectangular unconditionally -- it needs a platform in a
+            // specific corner regardless of shape rolls. Its west wall is provably free
+            // by the PickPathDir constraints above (checked again here via !combat2W
+            // rather than assumed), so the vertical tunnel almost always gets built;
+            // its east branch is likewise usually free unless the optional waypoint
+            // detour happened to leave via that exact wall.
+            bool combat2Branch = !combat2E && Random.value < 0.8f;
+            BuildRoom(Combat2Point, combatFloorColor, openNorth: combat2N, openSouth: combat2S, hazardous: true, openEast: combat2E, openWest: combat2W, westTunnel: !combat2W, platform: true, eastBranch: combat2Branch);
+            if (combat2Branch) BranchPoints.Add(BuildBranchPocket(Combat2Point));
             BuildRoomEntryTrigger(Combat2Point, RoomSlot.Combat2);
 
-            bool vaultCircular = Random.value < 0.5f;
-            // A treasure alcove needs a real west-wall gap (see BuildTreasureAlcove), which
-            // only a rectangular Vault can offer -- same reasoning as Combat2 above. The
-            // branch below uses the EAST wall instead, so a rectangular Vault can roll both
-            // a treasure alcove AND a branch in the same generation with no conflict.
-            bool treasureAlcove = !vaultCircular && Random.value < 0.4f;
-            bool vaultBranch = !vaultCircular && Random.value < 0.65f;
+            if (hasWaypoint)
+            {
+                // A plain, unnamed Combat-flavored room -- no shape roll, no platform, no
+                // branch, no RoomBanner (it has no RoomInfoTable slot). GameBootstrap
+                // populates it generically via WaypointPoints, the same way it already
+                // does for BranchPoints, just with a fuller on-path encounter.
+                OpenFlags(Opposite(waypointIncoming), waypointOutgoing, out bool wN, out bool wS, out bool wE, out bool wW);
+                BuildRoom(waypointPos, combatFloorColor, openNorth: wN, openSouth: wS, hazardous: true, openEast: wE, openWest: wW);
+                WaypointPoints.Add(waypointPos);
+            }
+
+            bool vaultCanBeCircular = !vaultE && !vaultW;
+            bool vaultCircular = vaultCanBeCircular && Random.value < 0.5f;
+            // A treasure alcove needs a real west-wall gap (see BuildTreasureAlcove) --
+            // provably free by the PickPathDir constraints above, checked again here via
+            // !vaultW rather than assumed.
+            bool treasureAlcove = !vaultCircular && !vaultW && Random.value < 0.4f;
+            bool vaultBranch = !vaultCircular && !vaultE && Random.value < 0.65f;
             if (vaultCircular)
                 BuildCircularRoom(VaultPoint, vaultFloorColor, circularRoomRadius, buildSniperPlatform: false);
             else
-                BuildRoom(VaultPoint, vaultFloorColor, openNorth: true, openSouth: true, hazardous: true, westTunnel: treasureAlcove, eastBranch: vaultBranch);
+                BuildRoom(VaultPoint, vaultFloorColor, openNorth: vaultN, openSouth: vaultS, hazardous: true, openEast: vaultE, openWest: vaultW, westTunnel: treasureAlcove, eastBranch: vaultBranch);
             if (treasureAlcove) TreasureAlcovePoint = BuildTreasureAlcove(VaultPoint);
             if (vaultBranch) BranchPoints.Add(BuildBranchPocket(VaultPoint));
             BuildRoomEntryTrigger(VaultPoint, RoomSlot.Vault);
@@ -261,15 +448,23 @@ namespace DungeonCrawler.World
             float savedRoomWidth = roomWidth, savedWallHeight = wallHeight;
             roomWidth = BossRoomWidth;
             wallHeight = BossRoomWallHeight;
-            BuildRoom(BossPoint, bossFloorColor, openNorth: false, openSouth: true, hazardous: true);
+            BuildRoom(BossPoint, bossFloorColor, openNorth: bossN, openSouth: bossS, hazardous: true, openEast: bossE, openWest: bossW);
             roomWidth = savedRoomWidth;
             wallHeight = savedWallHeight;
             BuildRoomEntryTrigger(BossPoint, RoomSlot.Boss);
 
-            BuildCorridor((EntryPoint + CombatPoint) / 2f);
-            BuildCorridor((CombatPoint + Combat2Point) / 2f);
-            BuildCorridor((Combat2Point + VaultPoint) / 2f);
-            BuildCorridor((VaultPoint + BossPoint) / 2f);
+            BuildCorridor(EntryPoint, CombatPoint);
+            BuildCorridor(CombatPoint, Combat2Point);
+            if (hasWaypoint)
+            {
+                BuildCorridor(Combat2Point, waypointPos);
+                BuildCorridor(waypointPos, VaultPoint);
+            }
+            else
+            {
+                BuildCorridor(Combat2Point, VaultPoint);
+            }
+            BuildCorridor(VaultPoint, BossPoint);
 
             BuildVerticalTunnel(Combat2Point);
 
@@ -365,7 +560,7 @@ namespace DungeonCrawler.World
             ceilingColor = new Color(0.05f, 0.03f, 0.07f);
         }
 
-        private void BuildRoom(Vector3 center, Color floorColor, bool openNorth, bool openSouth, bool hazardous, bool westTunnel = false, bool platform = false, bool platformIsPrimary = false, bool eastBranch = false)
+        private void BuildRoom(Vector3 center, Color floorColor, bool openNorth, bool openSouth, bool hazardous, bool openEast = false, bool openWest = false, bool westTunnel = false, bool platform = false, bool platformIsPrimary = false, bool eastBranch = false)
         {
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "RoomFloor";
@@ -374,16 +569,18 @@ namespace DungeonCrawler.World
             floor.transform.localScale = new Vector3(roomWidth / 10f, 1f, roomDepth / 10f);
             SetColor(floor, floorColor);
 
-            // East/west walls are always solid, except a room flagged westTunnel (vertical
-            // tunnel ramp / treasure alcove) or eastBranch (a side-branch pocket, see
-            // BuildBranchPocket) -- doors otherwise only ever open north/south, toward the
-            // next room in the line. The two gaps sit on opposite walls, so a room can take
-            // both at once with no conflict.
-            if (eastBranch)
+            // East/west gaps open for either reason: the spine's own random-walk path
+            // needs that wall (openEast/openWest, plain corridor, nothing built beyond
+            // it here) or this room is hosting a side-branch pocket / vertical tunnel /
+            // treasure alcove there (eastBranch/westTunnel -- Build() only ever sets
+            // those when the path itself doesn't already need that same wall, so the two
+            // reasons never collide on one room). North/south gaps work the same way via
+            // openNorth/openSouth and BuildWallOrDoor, just without a second "why."
+            if (eastBranch || openEast)
                 BuildEastWallWithGap(center);
             else
                 BuildWall(center + new Vector3(roomWidth / 2f, wallHeight / 2f, 0), new Vector3(wallThickness, wallHeight, roomDepth));
-            if (westTunnel)
+            if (westTunnel || openWest)
                 BuildWestWallWithGap(center);
             else
                 BuildWall(center + new Vector3(-roomWidth / 2f, wallHeight / 2f, 0), new Vector3(wallThickness, wallHeight, roomDepth));
@@ -1243,17 +1440,37 @@ namespace DungeonCrawler.World
             BuildBonePile(center + new Vector3(-1.5f, 0, 1f));
         }
 
-        private void BuildCorridor(Vector3 center)
+        // Connects any two adjacent spine rooms regardless of which cardinal direction
+        // separates them -- the old version only ever built a Z-aligned (north-south)
+        // corridor, which was fine when the spine was a fixed straight line but breaks
+        // the moment a hop can also run east-west (see Build()'s random-walk path).
+        // Picks its own orientation from whichever axis actually differs between the
+        // two centers; the two are always axis-aligned single grid hops (never
+        // diagonal), so this is never ambiguous.
+        private void BuildCorridor(Vector3 fromCenter, Vector3 toCenter)
         {
+            Vector3 mid = (fromCenter + toCenter) / 2f;
+            bool alongZ = Mathf.Abs(toCenter.z - fromCenter.z) > Mathf.Abs(toCenter.x - fromCenter.x);
+
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "CorridorFloor";
             floor.transform.SetParent(transform);
-            floor.transform.position = center;
-            floor.transform.localScale = new Vector3(corridorWidth / 10f, 1f, corridorLength / 10f);
+            floor.transform.position = mid;
+            floor.transform.localScale = alongZ
+                ? new Vector3(corridorWidth / 10f, 1f, corridorLength / 10f)
+                : new Vector3(corridorLength / 10f, 1f, corridorWidth / 10f);
             SetColor(floor, corridorFloorColor);
 
-            BuildWall(center + new Vector3(corridorWidth / 2f, wallHeight / 2f, 0), new Vector3(wallThickness, wallHeight, corridorLength));
-            BuildWall(center + new Vector3(-corridorWidth / 2f, wallHeight / 2f, 0), new Vector3(wallThickness, wallHeight, corridorLength));
+            if (alongZ)
+            {
+                BuildWall(mid + new Vector3(corridorWidth / 2f, wallHeight / 2f, 0), new Vector3(wallThickness, wallHeight, corridorLength));
+                BuildWall(mid + new Vector3(-corridorWidth / 2f, wallHeight / 2f, 0), new Vector3(wallThickness, wallHeight, corridorLength));
+            }
+            else
+            {
+                BuildWall(mid + new Vector3(0, wallHeight / 2f, corridorWidth / 2f), new Vector3(corridorLength, wallHeight, wallThickness));
+                BuildWall(mid + new Vector3(0, wallHeight / 2f, -corridorWidth / 2f), new Vector3(corridorLength, wallHeight, wallThickness));
+            }
 
             if (buildCeiling)
             {
@@ -1262,13 +1479,15 @@ namespace DungeonCrawler.World
                 var col = ceiling.GetComponent<Collider>();
                 if (col != null) Destroy(col);
                 ceiling.transform.SetParent(transform);
-                ceiling.transform.position = center + new Vector3(0, wallHeight, 0);
+                ceiling.transform.position = mid + new Vector3(0, wallHeight, 0);
                 ceiling.transform.rotation = Quaternion.Euler(180, 0, 0);
-                ceiling.transform.localScale = new Vector3(corridorWidth / 10f, 1f, corridorLength / 10f);
+                ceiling.transform.localScale = alongZ
+                    ? new Vector3(corridorWidth / 10f, 1f, corridorLength / 10f)
+                    : new Vector3(corridorLength / 10f, 1f, corridorWidth / 10f);
                 SetColor(ceiling, ceilingColor);
             }
 
-            if (buildTorches) BuildTorch(center + new Vector3(0, 1.1f, 0));
+            if (buildTorches) BuildTorch(mid + new Vector3(0, 1.1f, 0));
         }
 
         private void BuildWall(Vector3 worldCenter, Vector3 scale)
