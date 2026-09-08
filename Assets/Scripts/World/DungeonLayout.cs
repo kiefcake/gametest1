@@ -764,6 +764,35 @@ namespace DungeonCrawler.World
         // A glowing hazard pool -- forces the player to actually route around part of the
         // room instead of walking a straight line through every fight, and gives ranged
         // imps something worth kiting behind.
+        // A raised stone basin rim (see Models/Props/hazard_basin) around every hazard's
+        // flat glow disc -- the disc itself stays a runtime-built plane (PortalGlow
+        // animates its color, which needs a plain material, not a prop mesh) so this is
+        // purely additive dressing, not a replacement. Skips silently if the resource is
+        // missing rather than falling back to a primitive -- the pool still works fine
+        // (still damages, still glows) without a rim, unlike a torch or pillar whose
+        // absence would leave a much bigger visual hole.
+        private void BuildHazardBasinRim(Vector3 pos, float radius)
+        {
+            var model = Resources.Load<GameObject>("Models/Props/hazard_basin");
+            if (model == null) return;
+            var rimGO = Instantiate(model, transform);
+            rimGO.name = "HazardBasinRim";
+            rimGO.transform.position = pos;
+            rimGO.transform.localScale = Vector3.one * radius;
+        }
+
+        // Re-tints every renderer under a just-instantiated prop model to a solid runtime
+        // color, replacing whatever the imported OBJ's baked material color was. Only
+        // needed for props shared across every dungeon theme that used to derive their
+        // color from the active theme's palette (the pillar, from wallColor) -- unlike
+        // single-theme clutter (bones, ice spikes, reeds, ...) which keeps its own baked
+        // color regardless of which dungeon it's placed in.
+        private void TintRecursive(GameObject go, Color c)
+        {
+            foreach (var r in go.GetComponentsInChildren<Renderer>())
+                r.material = new Material(Shader.Find("Standard")) { color = c };
+        }
+
         private void BuildLavaPool(Vector3 pos, float radius)
         {
             var pool = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -784,36 +813,62 @@ namespace DungeonCrawler.World
             if (col != null) col.isTrigger = true;
 
             pool.AddComponent<LavaHazard>();
+            BuildHazardBasinRim(pos, radius);
         }
 
-        // Scattered bones plus a half-buried skull -- crude primitives, but they instantly
-        // read as "remains" among the lava and dark stone, which is the whole point.
+        // Scattered bones plus a half-buried skull -- real low-poly meshes (see
+        // Models/Props/bone_shard, skull) when the resource is present, falling back to
+        // the original stretched-capsule/sphere primitives if it's ever missing.
         private void BuildBonePile(Vector3 pos)
         {
             var boneColor = new Color(0.82f, 0.78f, 0.68f);
+            var shardModel = Resources.Load<GameObject>("Models/Props/bone_shard");
             int count = Random.Range(3, 6);
             for (int i = 0; i < count; i++)
             {
-                var bone = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                bone.name = "Bone";
-                var col = bone.GetComponent<Collider>();
-                if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
-                bone.transform.SetParent(transform);
                 Vector3 offset = new Vector3(Random.Range(-0.5f, 0.5f), 0.08f, Random.Range(-0.5f, 0.5f));
-                bone.transform.position = pos + offset;
-                bone.transform.rotation = Quaternion.Euler(Random.Range(70f, 110f), Random.Range(0f, 360f), 0f);
-                bone.transform.localScale = new Vector3(0.08f, Random.Range(0.25f, 0.4f), 0.08f);
-                SetColor(bone, boneColor);
+                if (shardModel != null)
+                {
+                    var boneGO = Instantiate(shardModel, transform);
+                    boneGO.name = "Bone";
+                    boneGO.transform.position = pos + offset;
+                    boneGO.transform.rotation = Quaternion.Euler(Random.Range(70f, 110f), Random.Range(0f, 360f), 0f);
+                    boneGO.transform.localScale = Vector3.one * Random.Range(0.7f, 1.15f);
+                }
+                else
+                {
+                    var bone = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                    bone.name = "Bone";
+                    var col = bone.GetComponent<Collider>();
+                    if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
+                    bone.transform.SetParent(transform);
+                    bone.transform.position = pos + offset;
+                    bone.transform.rotation = Quaternion.Euler(Random.Range(70f, 110f), Random.Range(0f, 360f), 0f);
+                    bone.transform.localScale = new Vector3(0.08f, Random.Range(0.25f, 0.4f), 0.08f);
+                    SetColor(bone, boneColor);
+                }
             }
 
-            var skull = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            skull.name = "Skull";
-            var skullCol = skull.GetComponent<Collider>();
-            if (skullCol != null) Destroy(skullCol);
-            skull.transform.SetParent(transform);
-            skull.transform.position = pos + new Vector3(Random.Range(-0.3f, 0.3f), 0.12f, Random.Range(-0.3f, 0.3f));
-            skull.transform.localScale = new Vector3(0.32f, 0.28f, 0.36f);
-            SetColor(skull, boneColor);
+            Vector3 skullOffset = new Vector3(Random.Range(-0.3f, 0.3f), 0.12f, Random.Range(-0.3f, 0.3f));
+            var skullModel = Resources.Load<GameObject>("Models/Props/skull");
+            if (skullModel != null)
+            {
+                var skullGO = Instantiate(skullModel, transform);
+                skullGO.name = "Skull";
+                skullGO.transform.position = pos + skullOffset;
+                skullGO.transform.rotation = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
+            }
+            else
+            {
+                var skull = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                skull.name = "Skull";
+                var skullCol = skull.GetComponent<Collider>();
+                if (skullCol != null) Destroy(skullCol);
+                skull.transform.SetParent(transform);
+                skull.transform.position = pos + skullOffset;
+                skull.transform.localScale = new Vector3(0.32f, 0.28f, 0.36f);
+                SetColor(skull, boneColor);
+            }
         }
 
         // Frozen Crypt's equivalent of BuildLavaPool -- same periodic-damage hazard
@@ -840,26 +895,40 @@ namespace DungeonCrawler.World
             hazard.appliedEffect = StatusEffectType.Slow;
             hazard.effectMagnitude = 0.4f;
             hazard.effectDuration = 1.5f;
+            BuildHazardBasinRim(pos, radius);
         }
 
-        // BuildBonePile's icy counterpart -- jagged ice-spike clusters instead of scattered
-        // bones, same crude-primitives-read-instantly approach.
+        // BuildBonePile's icy counterpart -- jagged ice-spike clusters (see
+        // Models/Props/ice_spike) instead of scattered bones, falling back to the
+        // original stretched-capsule primitive if the resource is ever missing.
         private void BuildIceSpikes(Vector3 pos)
         {
             var iceColor = new Color(0.78f, 0.92f, 1f);
+            var model = Resources.Load<GameObject>("Models/Props/ice_spike");
             int count = Random.Range(3, 6);
             for (int i = 0; i < count; i++)
             {
-                var spike = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                spike.name = "IceSpike";
-                var col = spike.GetComponent<Collider>();
-                if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
-                spike.transform.SetParent(transform);
                 Vector3 offset = new Vector3(Random.Range(-0.5f, 0.5f), 0.1f, Random.Range(-0.5f, 0.5f));
-                spike.transform.position = pos + offset;
-                spike.transform.rotation = Quaternion.Euler(Random.Range(-8f, 8f), Random.Range(0f, 360f), Random.Range(-8f, 8f));
-                spike.transform.localScale = new Vector3(0.1f, Random.Range(0.4f, 0.7f), 0.1f);
-                SetColor(spike, iceColor);
+                if (model != null)
+                {
+                    var spikeGO = Instantiate(model, transform);
+                    spikeGO.name = "IceSpike";
+                    spikeGO.transform.position = pos + offset;
+                    spikeGO.transform.rotation = Quaternion.Euler(Random.Range(-8f, 8f), Random.Range(0f, 360f), Random.Range(-8f, 8f));
+                    spikeGO.transform.localScale = Vector3.one * Random.Range(0.7f, 1.2f);
+                }
+                else
+                {
+                    var spike = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                    spike.name = "IceSpike";
+                    var col = spike.GetComponent<Collider>();
+                    if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
+                    spike.transform.SetParent(transform);
+                    spike.transform.position = pos + offset;
+                    spike.transform.rotation = Quaternion.Euler(Random.Range(-8f, 8f), Random.Range(0f, 360f), Random.Range(-8f, 8f));
+                    spike.transform.localScale = new Vector3(0.1f, Random.Range(0.4f, 0.7f), 0.1f);
+                    SetColor(spike, iceColor);
+                }
             }
         }
 
@@ -891,26 +960,40 @@ namespace DungeonCrawler.World
             hazard.appliedEffect = StatusEffectType.Blind;
             hazard.effectMagnitude = 1f;
             hazard.effectDuration = 1.5f;
+            BuildHazardBasinRim(pos, radius);
         }
 
-        // BuildBonePile/BuildIceSpikes' swamp counterpart -- tall reed/rush clusters
-        // instead of bones or ice spikes, same crude-primitives-read-instantly approach.
+        // BuildBonePile/BuildIceSpikes' swamp counterpart -- tall reed/rush clusters (see
+        // Models/Props/reed) instead of bones or ice spikes, falling back to the original
+        // stretched-capsule primitive if the resource is ever missing.
         private void BuildReedCluster(Vector3 pos)
         {
             var reedColor = new Color(0.3f, 0.42f, 0.24f);
+            var model = Resources.Load<GameObject>("Models/Props/reed");
             int count = Random.Range(3, 6);
             for (int i = 0; i < count; i++)
             {
-                var reed = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                reed.name = "Reed";
-                var col = reed.GetComponent<Collider>();
-                if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
-                reed.transform.SetParent(transform);
                 Vector3 offset = new Vector3(Random.Range(-0.5f, 0.5f), 0.1f, Random.Range(-0.5f, 0.5f));
-                reed.transform.position = pos + offset;
-                reed.transform.rotation = Quaternion.Euler(Random.Range(-6f, 6f), Random.Range(0f, 360f), Random.Range(-6f, 6f));
-                reed.transform.localScale = new Vector3(0.07f, Random.Range(0.5f, 0.85f), 0.07f);
-                SetColor(reed, reedColor);
+                if (model != null)
+                {
+                    var reedGO = Instantiate(model, transform);
+                    reedGO.name = "Reed";
+                    reedGO.transform.position = pos + offset;
+                    reedGO.transform.rotation = Quaternion.Euler(Random.Range(-6f, 6f), Random.Range(0f, 360f), Random.Range(-6f, 6f));
+                    reedGO.transform.localScale = Vector3.one * Random.Range(0.7f, 1.2f);
+                }
+                else
+                {
+                    var reed = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                    reed.name = "Reed";
+                    var col = reed.GetComponent<Collider>();
+                    if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
+                    reed.transform.SetParent(transform);
+                    reed.transform.position = pos + offset;
+                    reed.transform.rotation = Quaternion.Euler(Random.Range(-6f, 6f), Random.Range(0f, 360f), Random.Range(-6f, 6f));
+                    reed.transform.localScale = new Vector3(0.07f, Random.Range(0.5f, 0.85f), 0.07f);
+                    SetColor(reed, reedColor);
+                }
             }
         }
 
@@ -980,37 +1063,64 @@ namespace DungeonCrawler.World
             hazard.appliedEffect = StatusEffectType.Curse;
             hazard.effectMagnitude = 0.3f;
             hazard.effectDuration = 4f;
+            BuildHazardBasinRim(pos, radius);
         }
 
-        // Wraithbound Sanctum's clutter -- cracked reliquary shards and a broken urn,
-        // instead of another dungeon's bone pile/ice spikes/reeds.
+        // Wraithbound Sanctum's clutter -- cracked reliquary shards (see
+        // Models/Props/rubble_shard) and a broken urn (Models/Props/broken_urn) instead
+        // of another dungeon's bone pile/ice spikes/reeds, falling back to the original
+        // cube/cylinder primitives if either resource is ever missing.
         private void BuildShatteredReliquary(Vector3 pos)
         {
             var stoneColor = new Color(0.3f, 0.26f, 0.34f);
+            var shardModel = Resources.Load<GameObject>("Models/Props/rubble_shard");
             int count = Random.Range(3, 6);
             for (int i = 0; i < count; i++)
             {
-                var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                shard.name = "ReliquaryShard";
-                var col = shard.GetComponent<Collider>();
-                if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
-                shard.transform.SetParent(transform);
                 Vector3 offset = new Vector3(Random.Range(-0.55f, 0.55f), 0.1f, Random.Range(-0.55f, 0.55f));
-                shard.transform.position = pos + offset;
-                shard.transform.rotation = Quaternion.Euler(Random.Range(-25f, 25f), Random.Range(0f, 360f), Random.Range(-15f, 15f));
-                shard.transform.localScale = new Vector3(Random.Range(0.2f, 0.4f), Random.Range(0.3f, 0.6f), Random.Range(0.15f, 0.3f));
-                SetColor(shard, stoneColor);
+                if (shardModel != null)
+                {
+                    var shardGO = Instantiate(shardModel, transform);
+                    shardGO.name = "ReliquaryShard";
+                    shardGO.transform.position = pos + offset;
+                    shardGO.transform.rotation = Quaternion.Euler(Random.Range(-25f, 25f), Random.Range(0f, 360f), Random.Range(-15f, 15f));
+                    shardGO.transform.localScale = Vector3.one * Random.Range(0.7f, 1.3f);
+                }
+                else
+                {
+                    var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    shard.name = "ReliquaryShard";
+                    var col = shard.GetComponent<Collider>();
+                    if (col != null) Destroy(col); // decorative clutter -- shouldn't snag movement
+                    shard.transform.SetParent(transform);
+                    shard.transform.position = pos + offset;
+                    shard.transform.rotation = Quaternion.Euler(Random.Range(-25f, 25f), Random.Range(0f, 360f), Random.Range(-15f, 15f));
+                    shard.transform.localScale = new Vector3(Random.Range(0.2f, 0.4f), Random.Range(0.3f, 0.6f), Random.Range(0.15f, 0.3f));
+                    SetColor(shard, stoneColor);
+                }
             }
 
-            var urn = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            urn.name = "BrokenUrn";
-            var urnCol = urn.GetComponent<Collider>();
-            if (urnCol != null) Destroy(urnCol);
-            urn.transform.SetParent(transform);
-            urn.transform.position = pos + new Vector3(0.2f, 0.15f, -0.15f);
-            urn.transform.rotation = Quaternion.Euler(18f, Random.Range(0f, 360f), 0f);
-            urn.transform.localScale = new Vector3(0.28f, 0.22f, 0.28f);
-            SetColor(urn, new Color(0.22f, 0.19f, 0.26f));
+            var urnModel = Resources.Load<GameObject>("Models/Props/broken_urn");
+            if (urnModel != null)
+            {
+                var urnGO = Instantiate(urnModel, transform);
+                urnGO.name = "BrokenUrn";
+                urnGO.transform.position = pos + new Vector3(0.2f, 0f, -0.15f);
+                urnGO.transform.rotation = Quaternion.Euler(18f, Random.Range(0f, 360f), 0f);
+                urnGO.transform.localScale = Vector3.one * 0.7f;
+            }
+            else
+            {
+                var urn = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                urn.name = "BrokenUrn";
+                var urnCol = urn.GetComponent<Collider>();
+                if (urnCol != null) Destroy(urnCol);
+                urn.transform.SetParent(transform);
+                urn.transform.position = pos + new Vector3(0.2f, 0.15f, -0.15f);
+                urn.transform.rotation = Quaternion.Euler(18f, Random.Range(0f, 360f), 0f);
+                urn.transform.localScale = new Vector3(0.28f, 0.22f, 0.28f);
+                SetColor(urn, new Color(0.22f, 0.19f, 0.26f));
+            }
         }
 
         // Snake Pit's own room fixture in place of a lava pool/ice patch/poison bog -- the
@@ -1020,14 +1130,27 @@ namespace DungeonCrawler.World
         // World/SnakeGrateSpawner.cs) doing the actual periodic spawning.
         private void BuildSnakeGrate(Vector3 pos)
         {
-            var grate = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            grate.name = "SnakeGrate";
-            var col = grate.GetComponent<Collider>();
-            if (col != null) Destroy(col); // decorative marker -- the room floor beneath is still solid
-            grate.transform.SetParent(transform);
-            grate.transform.position = pos + new Vector3(0, 0.015f, 0);
-            grate.transform.localScale = new Vector3(2f, 0.015f, 2f);
-            SetColor(grate, new Color(0.14f, 0.11f, 0.08f));
+            var model = Resources.Load<GameObject>("Models/Props/snake_grate");
+            GameObject grate;
+            if (model != null)
+            {
+                grate = Instantiate(model, transform);
+                grate.name = "SnakeGrate";
+                grate.transform.position = pos + new Vector3(0, 0.015f, 0);
+                // Authored with an outer radius of ~1 (see props.js), matching the old
+                // disc's 2-unit diameter -- no extra scale needed.
+            }
+            else
+            {
+                grate = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                grate.name = "SnakeGrate";
+                var col = grate.GetComponent<Collider>();
+                if (col != null) Destroy(col); // decorative marker -- the room floor beneath is still solid
+                grate.transform.SetParent(transform);
+                grate.transform.position = pos + new Vector3(0, 0.015f, 0);
+                grate.transform.localScale = new Vector3(2f, 0.015f, 2f);
+                SetColor(grate, new Color(0.14f, 0.11f, 0.08f));
+            }
 
             grate.AddComponent<SnakeGrateSpawner>();
         }
@@ -1217,14 +1340,30 @@ namespace DungeonCrawler.World
             }
         }
 
+        // Modeled at exactly 8 units tall (see Models/Props/pillar, and props.js's own
+        // comment on why) -- the standard non-boss wallHeight, so the common case needs
+        // no runtime rescale at all; only the boss room's own taller wallHeight bump
+        // stretches it further, same as the old cube did unconditionally.
         private void BuildPillar(Vector3 basePos)
         {
-            var pillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            pillar.name = "Pillar";
-            pillar.transform.SetParent(transform);
-            pillar.transform.position = basePos + new Vector3(0, wallHeight / 2f, 0);
-            pillar.transform.localScale = new Vector3(0.7f, wallHeight, 0.7f);
-            SetColor(pillar, new Color(wallColor.r + 0.03f, wallColor.g + 0.03f, wallColor.b + 0.03f));
+            var model = Resources.Load<GameObject>("Models/Props/pillar");
+            if (model != null)
+            {
+                var pillarGO = Instantiate(model, transform);
+                pillarGO.name = "Pillar";
+                pillarGO.transform.position = basePos;
+                pillarGO.transform.localScale = new Vector3(1f, wallHeight / 8f, 1f);
+                TintRecursive(pillarGO, new Color(wallColor.r + 0.03f, wallColor.g + 0.03f, wallColor.b + 0.03f));
+            }
+            else
+            {
+                var pillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                pillar.name = "Pillar";
+                pillar.transform.SetParent(transform);
+                pillar.transform.position = basePos + new Vector3(0, wallHeight / 2f, 0);
+                pillar.transform.localScale = new Vector3(0.7f, wallHeight, 0.7f);
+                SetColor(pillar, new Color(wallColor.r + 0.03f, wallColor.g + 0.03f, wallColor.b + 0.03f));
+            }
         }
 
         private void BuildTorch(Vector3 pos)
@@ -1233,23 +1372,37 @@ namespace DungeonCrawler.World
             torchGO.transform.SetParent(transform);
             torchGO.transform.position = pos;
 
-            var holder = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            holder.name = "TorchHolder";
-            var holderCol = holder.GetComponent<Collider>();
-            if (holderCol != null) Destroy(holderCol);
-            holder.transform.SetParent(torchGO.transform);
-            holder.transform.localPosition = Vector3.zero;
-            holder.transform.localScale = new Vector3(0.15f, 0.55f, 0.15f);
-            SetColor(holder, new Color(0.12f, 0.08f, 0.05f));
+            // Real angled-bracket-plus-flame mesh (see Models/Props/wall_torch) when the
+            // resource is present, falling back to the original cube-holder/sphere-flame
+            // primitives if it's ever missing.
+            var model = Resources.Load<GameObject>("Models/Props/wall_torch");
+            if (model != null)
+            {
+                var modelGO = Instantiate(model, torchGO.transform);
+                modelGO.name = "TorchModel";
+                modelGO.transform.localPosition = Vector3.zero;
+                modelGO.transform.localRotation = Quaternion.identity;
+            }
+            else
+            {
+                var holder = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                holder.name = "TorchHolder";
+                var holderCol = holder.GetComponent<Collider>();
+                if (holderCol != null) Destroy(holderCol);
+                holder.transform.SetParent(torchGO.transform);
+                holder.transform.localPosition = Vector3.zero;
+                holder.transform.localScale = new Vector3(0.15f, 0.55f, 0.15f);
+                SetColor(holder, new Color(0.12f, 0.08f, 0.05f));
 
-            var flame = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            flame.name = "Flame";
-            var flameCol = flame.GetComponent<Collider>();
-            if (flameCol != null) Destroy(flameCol);
-            flame.transform.SetParent(torchGO.transform);
-            flame.transform.localPosition = new Vector3(0, 0.4f, 0);
-            flame.transform.localScale = Vector3.one * 0.22f;
-            SetColor(flame, new Color(1f, 0.6f, 0.15f));
+                var flame = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                flame.name = "Flame";
+                var flameCol = flame.GetComponent<Collider>();
+                if (flameCol != null) Destroy(flameCol);
+                flame.transform.SetParent(torchGO.transform);
+                flame.transform.localPosition = new Vector3(0, 0.4f, 0);
+                flame.transform.localScale = Vector3.one * 0.22f;
+                SetColor(flame, new Color(1f, 0.6f, 0.15f));
+            }
 
             var light = torchGO.AddComponent<Light>();
             light.type = LightType.Point;
