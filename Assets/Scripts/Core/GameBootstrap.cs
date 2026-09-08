@@ -150,37 +150,48 @@ namespace DungeonCrawler
                 inventoryUI.SetInventory(playerInventory, player.potionBelt);
             }
 
-            // Ember Cores (the belt-upgrade material) don't have their own hand-authored
-            // loot-table row -- injected once into the two shared tables here instead,
-            // since Resources.Load caches the same LootTable instance for every trash/boss
-            // spawn and every chest across all four dungeons (see EnsureBeltMaterialDrop).
-            EnsureBeltMaterialDrop(Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable"), 0.02f);
-            EnsureBeltMaterialDrop(Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable"), 0.5f);
+            // Ember Cores (the belt-upgrade material) and every potion type added after
+            // the original hand-authored .asset files don't have their own loot-table row
+            // -- injected once into every theme's own trash/boss table here instead of
+            // just Abyss's, now that each of the 5 dungeons has its own pair (see
+            // EnsureBeltMaterialDrop/EnsureItemDrop) rather than all sharing Abyss's.
+            // Resources.Load caches the same LootTable instance per path, so this only
+            // ever needs to run once per BeginRun even though every spawn helper below
+            // calls Resources.Load again for the same table.
+            string[] trashTableNames = { "AbyssLootTable", "FrozenCryptLootTable", "SunkenRuinsLootTable", "SnakePitLootTable", "WraithboundSanctumLootTable" };
+            string[] bossTableNames = { "AbyssBossLootTable", "FrozenCryptBossLootTable", "SunkenRuinsBossLootTable", "SnakePitBossLootTable", "WraithboundSanctumBossLootTable" };
 
-            // Vial of Renewal / Mana Bead are common enough to find in regular chests and
-            // off trash; Potion of Maximum Life (a permanent stat-growth item) is boss/
-            // vault-tier only, matching how rare All-Stat Potion already effectively is by
-            // being Curiosities-only and expensive.
-            var trashTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
-            var bossTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
-            EnsureItemDrop(trashTable, Inventory.AdvancedPotionFactory.VialOfRenewal, 0.06f);
-            EnsureItemDrop(trashTable, Inventory.AdvancedPotionFactory.ManaBead, 0.05f);
-            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.VialOfRenewal, 0.3f);
-            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.ManaBead, 0.3f);
-            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.MaxLifePotion, 0.15f);
+            foreach (var name in trashTableNames)
+            {
+                var t = Resources.Load<Loot.LootTable>("Data/Loot/" + name);
+                EnsureBeltMaterialDrop(t, 0.02f);
+                // Vial of Renewal / Mana Bead / Antidote / Draught of Haste / Stone Skin
+                // Tonic are common enough to find in regular chests and off trash.
+                EnsureItemDrop(t, Inventory.AdvancedPotionFactory.VialOfRenewal, 0.06f);
+                EnsureItemDrop(t, Inventory.AdvancedPotionFactory.ManaBead, 0.05f);
+                EnsureItemDrop(t, Inventory.AdvancedPotionFactory.Antidote, 0.05f);
+                EnsureItemDrop(t, Inventory.AdvancedPotionFactory.DraughtOfHaste, 0.04f);
+                EnsureItemDrop(t, Inventory.AdvancedPotionFactory.StoneSkinTonic, 0.04f);
+            }
 
-            // Antidote/Draught of Haste/Stone Skin Tonic -- same tier as Vial of Renewal/
-            // Mana Bead, common enough to find while exploring, more common still off bosses.
-            EnsureItemDrop(trashTable, Inventory.AdvancedPotionFactory.Antidote, 0.05f);
-            EnsureItemDrop(trashTable, Inventory.AdvancedPotionFactory.DraughtOfHaste, 0.04f);
-            EnsureItemDrop(trashTable, Inventory.AdvancedPotionFactory.StoneSkinTonic, 0.04f);
-            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.Antidote, 0.25f);
-            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.DraughtOfHaste, 0.25f);
-            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.StoneSkinTonic, 0.25f);
-
-            // Bottled Second Wind -- Legendary-rare, boss-only, no trash-table entry at all.
-            // A solo panic button should be a real find, not something you casually stock up on.
-            EnsureItemDrop(bossTable, Inventory.AdvancedPotionFactory.BottledSecondWind, 0.06f);
+            foreach (var name in bossTableNames)
+            {
+                var t = Resources.Load<Loot.LootTable>("Data/Loot/" + name);
+                EnsureBeltMaterialDrop(t, 0.5f);
+                // Potion of Maximum Life (a permanent stat-growth item) is boss/vault-tier
+                // only, matching how rare All-Stat Potion already effectively is by being
+                // Curiosities-only and expensive.
+                EnsureItemDrop(t, Inventory.AdvancedPotionFactory.VialOfRenewal, 0.3f);
+                EnsureItemDrop(t, Inventory.AdvancedPotionFactory.ManaBead, 0.3f);
+                EnsureItemDrop(t, Inventory.AdvancedPotionFactory.MaxLifePotion, 0.15f);
+                EnsureItemDrop(t, Inventory.AdvancedPotionFactory.Antidote, 0.25f);
+                EnsureItemDrop(t, Inventory.AdvancedPotionFactory.DraughtOfHaste, 0.25f);
+                EnsureItemDrop(t, Inventory.AdvancedPotionFactory.StoneSkinTonic, 0.25f);
+                // Bottled Second Wind -- Legendary-rare, boss-only, no trash-table entry
+                // at all. A solo panic button should be a real find, not something you
+                // casually stock up on.
+                EnsureItemDrop(t, Inventory.AdvancedPotionFactory.BottledSecondWind, 0.06f);
+            }
 
             PlayerHUD.Build(player, wallet, downedRecovery);
             StatScreenUI.Build(player); // toggle with C
@@ -386,7 +397,7 @@ namespace DungeonCrawler
 
             SpawnBanditMiniboss<ImpChief>(zone.minibossPoint, 400f, 1.8f,
                 () => { wastesCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterAbyssDungeon); },
-                imp => imp.ApplyVariant(true));
+                imp => imp.ApplyVariant(true), trashTableName: "AbyssLootTable");
         }
 
         // Frostlands trash/guards/chief are all Frost Skeletons -- killing the chief opens a
@@ -403,7 +414,8 @@ namespace DungeonCrawler
             foreach (var p in zone.guardPoints) SpawnFrostSkeleton(p);
 
             SpawnBanditMiniboss<FrostSkeletonChief>(zone.minibossPoint, 400f, 1.8f,
-                () => { frostlandsCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterFrozenCrypt); });
+                () => { frostlandsCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterFrozenCrypt); },
+                trashTableName: "FrozenCryptLootTable");
         }
 
         // Marshlands trash/guards/chief are all Bog Lurkers -- killing the chief opens a
@@ -420,7 +432,8 @@ namespace DungeonCrawler
             foreach (var p in zone.guardPoints) SpawnBogLurker(p);
 
             SpawnBanditMiniboss<BogLurkerChief>(zone.minibossPoint, 400f, 1.8f,
-                () => { marshlandsCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterSunkenRuins); });
+                () => { marshlandsCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterSunkenRuins); },
+                trashTableName: "SunkenRuinsLootTable");
         }
 
         // Snake Pit zone trash/guards alternate Pit Snakes and Dart Throwers -- the camp's
@@ -443,7 +456,8 @@ namespace DungeonCrawler
             foreach (var p in zone.guardPoints) SpawnPitSnake(p);
 
             SpawnBanditMiniboss<PitSnakeChief>(zone.minibossPoint, 400f, 1.8f,
-                () => { snakePitZoneCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterSnakePit); });
+                () => { snakePitZoneCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterSnakePit); },
+                trashTableName: "SnakePitLootTable");
         }
 
         // Reliquary zone trash/guards alternate Wraith Knights and Specter Casters -- the
@@ -465,7 +479,8 @@ namespace DungeonCrawler
             foreach (var p in zone.guardPoints) SpawnWraithKnight(p);
 
             SpawnBanditMiniboss<WraithKnightChief>(zone.minibossPoint, 400f, 1.8f,
-                () => { reliquaryZoneCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterWraithboundSanctum); });
+                () => { reliquaryZoneCleared = true; BuildDungeonPortal(zone.campPortalPoint, zone.dungeonLabel, EnterWraithboundSanctum); },
+                trashTableName: "WraithboundSanctumLootTable");
         }
 
         // A single generic "bandit chief" builder shared by all three biomes -- same
@@ -476,7 +491,7 @@ namespace DungeonCrawler
         // explicit post-AddComponent method exposes (e.g. ImpDemon.ApplyVariant(true) for
         // the Wastes chief) without that work getting clobbered by the flat maxHp/damage
         // override that follows.
-        private void SpawnBanditMiniboss<T>(Vector3 pos, float maxHp, float damageMultiplier, System.Action onDefeated, System.Action<T> configure = null) where T : EnemyBase
+        private void SpawnBanditMiniboss<T>(Vector3 pos, float maxHp, float damageMultiplier, System.Action onDefeated, System.Action<T> configure = null, string trashTableName = "AbyssLootTable") where T : EnemyBase
         {
             var go = new GameObject(typeof(T).Name + "Chief");
             go.transform.position = pos;
@@ -494,7 +509,7 @@ namespace DungeonCrawler
             h.SetCurrentHP(maxHp);
             go.AddComponent<AggroController>();
             var loot = go.AddComponent<LootDropper>();
-            loot.lootTable = Resources.Load<LootTable>("Data/Loot/AbyssLootTable"); // reuse the trash table, not the boss table -- this is a miniboss, not a dungeon boss
+            loot.lootTable = Resources.Load<LootTable>("Data/Loot/" + trashTableName); // reuse the trash table, not the boss table -- this is a miniboss, not a dungeon boss
             loot.minGold = 25;
             loot.maxGold = 45;
             loot.minEssence = 8;
@@ -605,7 +620,7 @@ namespace DungeonCrawler
                     SpawnRangedImp(waypoint + new Vector3(-2f, 0, -1.5f));
                 }
 
-                SpawnVaultLoot(layout.VaultPoint);
+                SpawnVaultLoot(layout.VaultPoint, "AbyssBossLootTable");
                 SpawnBoss(layout.BossPoint);
 
                 // The entry-room gate is a long walk back from the boss room in a
@@ -659,7 +674,7 @@ namespace DungeonCrawler
                     SpawnRangedImp(waypoint + new Vector3(-2f, 0, -1.5f));
                 }
 
-                SpawnVaultLoot(layout.VaultPoint);
+                SpawnVaultLoot(layout.VaultPoint, "FrozenCryptBossLootTable");
                 SpawnFrostLichBoss(layout.BossPoint);
 
                 BuildBossExitGate(layout.BossPoint + new Vector3(-7f, 0, 7f), "the Frozen Crypt");
@@ -710,7 +725,7 @@ namespace DungeonCrawler
                     SpawnRangedImp(waypoint + new Vector3(-2f, 0, -1.5f));
                 }
 
-                SpawnVaultLoot(layout.VaultPoint);
+                SpawnVaultLoot(layout.VaultPoint, "SunkenRuinsBossLootTable");
                 SpawnSwampWardenBoss(layout.BossPoint);
 
                 BuildBossExitGate(layout.BossPoint + new Vector3(-7f, 0, 7f), "the Sunken Ruins");
@@ -761,7 +776,7 @@ namespace DungeonCrawler
                     SpawnPitDartThrower(waypoint + new Vector3(-2f, 0, -1.5f));
                 }
 
-                SpawnVaultLoot(layout.VaultPoint);
+                SpawnVaultLoot(layout.VaultPoint, "SnakePitBossLootTable");
                 // Only present on the roughly 24% of generations that roll both a
                 // rectangular Vault AND the treasure-alcove chance (see DungeonLayout.Build)
                 // -- a bonus on top of the guaranteed Vault reward above, not a replacement.
@@ -816,7 +831,7 @@ namespace DungeonCrawler
                     SpawnSpecterCaster(waypoint + new Vector3(-2f, 0, -1.5f));
                 }
 
-                SpawnVaultLoot(layout.VaultPoint);
+                SpawnVaultLoot(layout.VaultPoint, "WraithboundSanctumBossLootTable");
                 if (layout.TreasureAlcovePoint.HasValue) SpawnTunnelLoot(layout.TreasureAlcovePoint.Value);
 
                 SpawnSunderedLordBoss(layout.BossPoint);
@@ -1055,7 +1070,7 @@ namespace DungeonCrawler
             go.AddComponent<FrostSkeleton>();
             go.AddComponent<AggroController>();
             var loot = go.AddComponent<LootDropper>();
-            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/FrozenCryptLootTable");
             loot.minGold = 4;
             loot.maxGold = 9;
             loot.minEssence = 1;
@@ -1072,7 +1087,7 @@ namespace DungeonCrawler
             go.AddComponent<PitSnake>();
             go.AddComponent<AggroController>();
             var loot = go.AddComponent<LootDropper>();
-            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/SnakePitLootTable");
             loot.minGold = 2;
             loot.maxGold = 5;
             loot.minEssence = 1;
@@ -1089,7 +1104,7 @@ namespace DungeonCrawler
             go.AddComponent<PitDartThrower>();
             go.AddComponent<AggroController>();
             var loot = go.AddComponent<LootDropper>();
-            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/SnakePitLootTable");
             loot.minGold = 4;
             loot.maxGold = 9;
             loot.minEssence = 1;
@@ -1106,7 +1121,7 @@ namespace DungeonCrawler
             go.AddComponent<WraithKnight>();
             go.AddComponent<AggroController>();
             var loot = go.AddComponent<LootDropper>();
-            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/WraithboundSanctumLootTable");
             loot.minGold = 4;
             loot.maxGold = 9;
             loot.minEssence = 1;
@@ -1123,7 +1138,7 @@ namespace DungeonCrawler
             go.AddComponent<SpecterCaster>();
             go.AddComponent<AggroController>();
             var loot = go.AddComponent<LootDropper>();
-            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssLootTable");
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/WraithboundSanctumLootTable");
             loot.minGold = 6;
             loot.maxGold = 10;
             loot.minEssence = 2;
@@ -1142,7 +1157,7 @@ namespace DungeonCrawler
             go.AddComponent<SunderedLord>();
             go.AddComponent<AggroController>();
             var loot = go.AddComponent<LootDropper>();
-            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/WraithboundSanctumBossLootTable");
             loot.minGold = 90;
             loot.maxGold = 140;
             loot.minEssence = 30;
@@ -1163,7 +1178,7 @@ namespace DungeonCrawler
             go.AddComponent<FrostLich>();
             go.AddComponent<AggroController>();
             var loot = go.AddComponent<LootDropper>();
-            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/FrozenCryptBossLootTable");
             loot.minGold = 90;
             loot.maxGold = 140;
             loot.minEssence = 30;
@@ -1186,7 +1201,7 @@ namespace DungeonCrawler
             go.AddComponent<SwampWarden>();
             go.AddComponent<AggroController>();
             var loot = go.AddComponent<LootDropper>();
-            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/SunkenRuinsBossLootTable");
             loot.minGold = 90;
             loot.maxGold = 140;
             loot.minEssence = 30;
@@ -1228,7 +1243,7 @@ namespace DungeonCrawler
             go.AddComponent<SthenoSnakeQueen>();
             go.AddComponent<AggroController>();
             var loot = go.AddComponent<LootDropper>();
-            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
+            loot.lootTable = Resources.Load<Loot.LootTable>("Data/Loot/SnakePitBossLootTable");
             loot.minGold = 90;
             loot.maxGold = 140;
             loot.minEssence = 30;
@@ -1242,9 +1257,9 @@ namespace DungeonCrawler
         // item list -- reuses infrastructure that's already proven to load correctly.
         // Handed to a Chest instead of scattered as floor pickups -- a "vault" should have
         // something to actually open.
-        private void SpawnVaultLoot(Vector3 pos)
+        private void SpawnVaultLoot(Vector3 pos, string bossTableName = "AbyssBossLootTable")
         {
-            var table = Resources.Load<Loot.LootTable>("Data/Loot/AbyssBossLootTable");
+            var table = Resources.Load<Loot.LootTable>("Data/Loot/" + bossTableName);
             if (table == null) return;
 
             var pool = new List<Inventory.ItemData>();

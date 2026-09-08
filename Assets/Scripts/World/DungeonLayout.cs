@@ -118,6 +118,23 @@ namespace DungeonCrawler.World
             _ => Vector2Int.zero,
         };
 
+        // North/East/South/West land on 0/90/180/270 by construction (enum declaration
+        // order), matching BuildCircularWallArc's own angle convention exactly
+        // (angle 0 -> +Z/North, 90 -> +X/East, 180 -> -Z/South, 270 -> -X/West -- see its
+        // trig). DirVector is the same mapping as a unit offset, for placing decor
+        // (torches, a sniper platform) in whichever compass direction a circular room's
+        // wall actually is, instead of the hardcoded east/west a fixed north-south-only
+        // room could always assume.
+        private static float DirToAngle(Dir d) => (int)d * 90f;
+        private static Vector3 DirVector(Dir d) => d switch
+        {
+            Dir.North => Vector3.forward,
+            Dir.South => Vector3.back,
+            Dir.East => Vector3.right,
+            Dir.West => Vector3.left,
+            _ => Vector3.forward,
+        };
+
         // Picks a random compass direction for the next hop of the spine's random walk
         // -- never the exact reverse of the incoming direction (no instant backtrack
         // onto the room you just left), never one that would land on an already-used
@@ -408,17 +425,16 @@ namespace DungeonCrawler.World
 
             // Procedural shape roll -- Combat and Vault each independently pick circular
             // or rectangular per generation, so no two runs of the same dungeon look
-            // identical. Circular rooms only ever open two OPPOSITE gaps (see
-            // BuildCircularWallRing), so a room whose real path connections need its
-            // east or west wall this generation can't roll circular at all -- computed
-            // here from the actual OpenFlags result, not assumed the way the old
-            // straight-line spine could get away with.
-            bool combatCanBeCircular = !combatE && !combatW;
-            bool combatCircular = combatCanBeCircular && Random.value < 0.5f;
+            // identical. BuildCircularWallRing supports a gap at ANY angle now (not just
+            // the old fixed north-south pair), so circular is legal regardless of which
+            // two compass directions this room's real path connections happen to land
+            // on -- Opposite(d1)/d2 ARE those two directions directly, no need to
+            // re-derive them from the OpenFlags booleans.
+            bool combatCircular = Random.value < 0.5f;
             bool combatBranch = !combatCircular && !combatE && Random.value < 0.65f;
             if (combatCircular)
             {
-                BuildCircularRoom(CombatPoint, combatFloorColor, circularRoomRadius);
+                BuildCircularRoom(CombatPoint, combatFloorColor, circularRoomRadius, Opposite(d1), d2);
             }
             else
             {
@@ -449,15 +465,14 @@ namespace DungeonCrawler.World
                 WaypointPoints.Add(waypointPos);
             }
 
-            bool vaultCanBeCircular = !vaultE && !vaultW;
-            bool vaultCircular = vaultCanBeCircular && Random.value < 0.5f;
+            bool vaultCircular = Random.value < 0.5f;
             // A treasure alcove needs a real west-wall gap (see BuildTreasureAlcove) --
             // provably free by the PickPathDir constraints above, checked again here via
             // !vaultW rather than assumed.
             bool treasureAlcove = !vaultCircular && !vaultW && Random.value < 0.4f;
             bool vaultBranch = !vaultCircular && !vaultE && Random.value < 0.65f;
             if (vaultCircular)
-                BuildCircularRoom(VaultPoint, vaultFloorColor, circularRoomRadius, buildSniperPlatform: false);
+                BuildCircularRoom(VaultPoint, vaultFloorColor, circularRoomRadius, Opposite(intoVaultDir), d4, buildSniperPlatform: false);
             else
                 BuildRoom(VaultPoint, vaultFloorColor, openNorth: vaultN, openSouth: vaultS, hazardous: true, openEast: vaultE, openWest: vaultW, westTunnel: treasureAlcove, eastBranch: vaultBranch);
             if (treasureAlcove) TreasureAlcovePoint = BuildTreasureAlcove(VaultPoint);
@@ -660,7 +675,15 @@ namespace DungeonCrawler.World
         // unconditionally overwrite CombatPlatformPoint with its own platform's position,
         // silently breaking GameBootstrap's SpawnRangedImp(layout.CombatPlatformPoint) call
         // for that run.
-        private void BuildCircularRoom(Vector3 center, Color floorColor, float radius, bool buildSniperPlatform = true)
+        // dirA/dirB are the room's two REAL connection directions (from Build()'s own
+        // computed OpenFlags), not assumed to be north-south -- once BuildCircularWallRing
+        // could build a gap at any angle, a circular room stopped needing to be
+        // restricted to just the one pair of directions the old fixed-spine generator
+        // ever asked for. Torches and the sniper platform go on whichever TWO directions
+        // are actually free (the complement of {dirA, dirB} among the 4 compass
+        // directions -- always exactly two, since every circular room here is an
+        // interior spine node with exactly one incoming and one outgoing connection).
+        private void BuildCircularRoom(Vector3 center, Color floorColor, float radius, Dir dirA, Dir dirB, bool buildSniperPlatform = true)
         {
             var floor = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             floor.name = "RoomFloor";
@@ -674,7 +697,7 @@ namespace DungeonCrawler.World
             // fudge-factor margin needed here either. A small +4 keeps the opening
             // comfortably wider than the raw corridor chord, not to dodge a rounding error.
             float gapHalfAngle = Mathf.Asin(Mathf.Clamp01((corridorWidth / 2f) / radius)) * Mathf.Rad2Deg + 4f;
-            BuildCircularWallRing(center, radius, new float[] { 0f, 180f }, gapHalfAngle);
+            BuildCircularWallRing(center, radius, new float[] { DirToAngle(dirA), DirToAngle(dirB) }, gapHalfAngle);
 
             if (buildCeiling)
             {
@@ -688,50 +711,71 @@ namespace DungeonCrawler.World
                 SetColor(ceiling, ceilingColor);
             }
 
+            // The two directions NOT used as a corridor gap -- always exactly two, since
+            // dirA/dirB are always distinct (Build() never rolls a room's own incoming
+            // and outgoing hop as the same direction).
+            var freeDirs = new List<Dir>();
+            foreach (Dir d in new[] { Dir.North, Dir.East, Dir.South, Dir.West })
+                if (d != dirA && d != dirB) freeDirs.Add(d);
+
             if (buildTorches)
             {
-                BuildTorch(center + new Vector3(radius - 2f, 1.1f, 0));
-                BuildTorch(center + new Vector3(-(radius - 2f), 1.1f, 0));
+                foreach (var d in freeDirs)
+                    BuildTorch(center + DirVector(d) * (radius - 2f) + new Vector3(0, 1.1f, 0));
             }
 
             BuildThemedHazardCluster(center + new Vector3(-6f, 0, -6f), center + new Vector3(-8f, 0, 5f), center + new Vector3(6f, 0, -8f));
 
             if (buildSniperPlatform)
             {
-                // Sniper platform to the east, well clear of both corridor openings (0 deg
-                // and 180 deg) -- the ramp climbs toward the room's own center so it can't
-                // run past the wall on the far side.
-                Vector3 platformTop = center + new Vector3(radius - 6f, platformHeight, 0);
+                // Platform in whichever free direction sorts first -- well clear of both
+                // corridor gaps regardless of which compass directions they actually are.
+                // The ramp always climbs toward the room's own center (inward along the
+                // same direction vector) so it can't run past the wall on the far side.
+                Vector3 outward = DirVector(freeDirs[0]);
+                Vector3 platformTop = center + outward * (radius - 6f) + new Vector3(0, platformHeight, 0);
                 CombatPlatformPoint = platformTop;
                 BuildPlatform(platformTop);
-                Vector3 rampTop = platformTop + new Vector3(-platformHalfSize, 0, 0);
-                Vector3 rampBottom = rampTop + new Vector3(-4f, -platformHeight, 0);
+                Vector3 rampTop = platformTop - outward * platformHalfSize;
+                Vector3 rampBottom = rampTop - outward * 4f - new Vector3(0, platformHeight, 0);
                 BuildRamp(rampTop, rampBottom, 3f);
             }
         }
 
-        // Builds the ring as two walled arcs (each tangent-segmented, local X the tangent
-        // direction / local Z the radial thickness once rotated by its own angle around Y),
-        // leaving the two gaps between them where a corridor connects.
+        // Builds the ring as N walled arcs (each tangent-segmented, local X the tangent
+        // direction / local Z the radial thickness once rotated by its own angle around
+        // Y), one per gap in gapAnglesDeg, leaving a gap between each pair of adjacent
+        // arcs where a corridor connects. Originally only ever handled exactly two
+        // opposite gaps (0/180 degrees, i.e. always north-south) because that was the
+        // only shape the old fixed-spine dungeon generator ever needed -- generalized to
+        // any 1-4 gap angles once the free-form random-walk spine (see Build()) made a
+        // circular room's real connections able to land on ANY pair of compass
+        // directions, not just north-south. Sorting first means the arcs are always
+        // built consecutively around the ring regardless of the order gapAnglesDeg was
+        // passed in.
         //
-        // Rebuilt from scratch -- the previous approach approximated the gaps onto a fixed
-        // 24-segment/15-degree grid ("skip whichever segments fall near the gap angle") and
-        // needed a padding trick to hide seams between kept segments; two rounds of tuning
-        // that padding/margin still left a real, physical wall corner sitting somewhere
-        // inside what looked like an open doorway. Rather than find a third magic number,
-        // this drops the fixed grid entirely: it only ever needs to handle exactly the two
-        // opposite gaps this codebase calls it with (0/180 degrees), so it builds the two
-        // KEPT arcs (east side, west side) as their own continuous polylines, each sized to
-        // that arc's own exact start/end angle. Every arc's first and last vertex lands
-        // exactly on the real gap boundary -- there's no "does this 15-degree slice happen to
-        // land near the gap" approximation left to get subtly wrong.
+        // Every arc's first and last vertex lands exactly on its own gap's real boundary
+        // angle -- no fixed grid to round to, so no fudge-factor margin needed. See
+        // BuildCircularWallArc's own comment for why that mattered (a previous, fixed-
+        // grid approach here left a real physical wall corner sitting somewhere inside
+        // what looked like an open doorway).
         private void BuildCircularWallRing(Vector3 center, float radius, float[] gapAnglesDeg, float gapHalfAngle)
         {
-            float gapA = gapAnglesDeg[0];
-            float gapB = gapAnglesDeg.Length > 1 ? gapAnglesDeg[1] : gapA + 180f;
+            if (gapAnglesDeg.Length == 0)
+            {
+                BuildCircularWallArc(center, radius, 0f, 360f); // no connections at all -- a fully solid ring
+                return;
+            }
 
-            BuildCircularWallArc(center, radius, gapA + gapHalfAngle, gapB - gapHalfAngle);
-            BuildCircularWallArc(center, radius, gapB + gapHalfAngle, gapA + 360f - gapHalfAngle);
+            var sorted = (float[])gapAnglesDeg.Clone();
+            System.Array.Sort(sorted);
+
+            for (int i = 0; i < sorted.Length; i++)
+            {
+                float start = sorted[i] + gapHalfAngle;
+                float end = (i + 1 < sorted.Length ? sorted[i + 1] : sorted[0] + 360f) - gapHalfAngle;
+                BuildCircularWallArc(center, radius, start, end);
+            }
         }
 
         // One continuous stretch of wall from startAngle to endAngle (degrees; startAngle is

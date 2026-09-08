@@ -42,7 +42,7 @@ namespace DungeonCrawler.Enemies
             go.AddComponent<BogLurker>();
             go.AddComponent<AggroController>();
             var loot = go.AddComponent<LootDropper>();
-            loot.lootTable = Resources.Load<LootTable>("Data/Loot/AbyssLootTable");
+            loot.lootTable = Resources.Load<LootTable>("Data/Loot/SunkenRuinsLootTable");
             loot.minGold = 4;
             loot.maxGold = 9;
             loot.minEssence = 1;
