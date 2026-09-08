@@ -511,6 +511,52 @@ namespace DungeonCrawler.World
             AnnounceRoom(RoomSlot.Entry);
         }
 
+        // Debug/test-only: a minimal Entry -> corridor -> circular room -> corridor ->
+        // small room, built in isolation instead of via the full random-walk Build().
+        // The circular room's two gaps are North (facing Entry) and East (facing the
+        // small room) -- an ADJACENT pair, not the opposite pair a straight two-hop
+        // connection would give it, specifically exercising the part of
+        // BuildCircularWallRing's generalization a real dungeon's own path-direction
+        // constraints (see Build()'s own comments) might not roll for a while. Both
+        // gaps lead somewhere walkable, so this tests "is the circular room actually
+        // enterable" from both sides, not just "does it look right."
+        //
+        // worldOffset is added to every position computed here, NOT applied via this
+        // component's own transform -- every BuildRoom/BuildWall/etc. call in this file
+        // sets transform.position as an ABSOLUTE world-space write after SetParent, so
+        // the container GameObject's own position has zero effect on where the geometry
+        // actually ends up (a real bug this exact method shipped with once already:
+        // GameBootstrap tried to reposition the whole test structure by moving its
+        // GameObject, and the geometry stayed at world origin, overlapping the hub,
+        // while the recorded teleport target pointed at empty space). Baking the offset
+        // into the coordinates themselves, the same way Build()'s own CellToWorld bakes
+        // in DungeonOriginZOffset, is the only way that actually works here. Returns the
+        // final WORLD-space EntryPoint (worldOffset + local origin), not a local offset.
+        public Vector3 BuildCircularRoomTest(Vector3 worldOffset, DungeonTheme dungeonTheme = DungeonTheme.Abyss)
+        {
+            theme = dungeonTheme;
+            if (theme == DungeonTheme.FrozenCrypt) ApplyFrozenCryptPalette();
+            else if (theme == DungeonTheme.SunkenRuins) ApplySunkenRuinsPalette();
+            else if (theme == DungeonTheme.SnakePit) ApplySnakePitPalette();
+            else if (theme == DungeonTheme.WraithboundSanctum) ApplyWraithboundPalette();
+
+            float pitch = roomWidth + corridorLength;
+            Vector3 entryPos = worldOffset;
+            Vector3 circularPos = entryPos + DirVector(Dir.South) * pitch;
+            Vector3 eastRoomPos = circularPos + DirVector(Dir.East) * pitch;
+
+            BuildRoom(entryPos, entryFloorColor, openNorth: false, openSouth: true, hazardous: false);
+            BuildCorridor(entryPos, circularPos);
+
+            BuildCircularRoom(circularPos, combatFloorColor, circularRoomRadius, Dir.North, Dir.East, buildSniperPlatform: false);
+
+            BuildCorridor(circularPos, eastRoomPos);
+            BuildRoom(eastRoomPos, combatFloorColor, openNorth: false, openSouth: false, hazardous: false, openWest: true);
+
+            EntryPoint = entryPos;
+            return entryPos;
+        }
+
         // Shows a room's RoomBanner (see UI/RoomBanner.cs) directly, looked up from
         // RoomInfoTable for the currently-building theme. Only ever called for Entry today
         // (see the end of Build()) -- the other four rooms announce themselves via

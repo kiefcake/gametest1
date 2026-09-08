@@ -20,6 +20,13 @@ namespace DungeonCrawler.Core
         public KeyCode killAllKey = KeyCode.F3;
         public KeyCode godModeKey = KeyCode.F4;
         public KeyCode resetCooldownsKey = KeyCode.F5;
+        public KeyCode circularTestKey = KeyCode.F6;
+
+        // Set by GameBootstrap after it builds the standalone circular-room test
+        // structure south of the hub -- a real, walled-off block of test geometry with
+        // no walkable path in from the hub (which is a fully enclosed village on every
+        // side but its own north gate), so a teleport is the only way in.
+        public System.Action teleportToCircularTest;
 
         private bool godMode;
         private Text statusText;
@@ -42,6 +49,7 @@ namespace DungeonCrawler.Core
             if (Input.GetKeyDown(killAllKey)) KillAll();
             if (Input.GetKeyDown(godModeKey)) ToggleGodMode();
             if (Input.GetKeyDown(resetCooldownsKey)) ResetCooldowns();
+            if (Input.GetKeyDown(circularTestKey)) { teleportToCircularTest?.Invoke(); ShowMessage("Teleported to circular room test"); }
 
             if (messageTimer > 0f)
             {
@@ -96,7 +104,7 @@ namespace DungeonCrawler.Core
             messageTimer = 2f;
         }
 
-        private string HintLine() => "F1 +Gold   F2 Full Heal   F3 Kill All   F4 God Mode   F5 Reset Cooldowns";
+        private string HintLine() => "F1 +Gold   F2 Full Heal   F3 Kill All   F4 God Mode   F5 Reset Cooldowns   F6 Circular Room Test";
 
         private void BuildUI()
         {

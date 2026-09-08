@@ -35,6 +35,7 @@ namespace DungeonCrawler
         private Vector3 currentAreaEntryPoint; // wherever TeleportPlayer last put the player -- see FallRecovery
         private GameObject dungeonRoot;
         private HubLayout hub;
+        private Vector3 circularRoomTestEntry;
 
         // Which camps have already been cleared this run -- survives the open world's own
         // Destroy(dungeonRoot) (the camps live inside it, this doesn't) so beating one
@@ -197,7 +198,10 @@ namespace DungeonCrawler
             StatScreenUI.Build(player); // toggle with C
             AbilityRankUI.Build(player); // toggle with K -- spend Essence on ability ranks/runes
             PauseMenuUI.Build(); // toggle with Escape -- owns cursor lock/timeScale pausing
-            DebugTools.Build(player, wallet); // F1-F5 testing hotkeys -- see DebugTools for the list
+            var debugTools = DebugTools.Build(player, wallet); // F1-F5 testing hotkeys -- see DebugTools for the list
+            debugTools.teleportToCircularTest = () => TeleportPlayer(circularRoomTestEntry);
+
+            BuildCircularRoomTest();
 
             hub.GateInteractable.onInteract = EnterOpenWorld;
             WireVendors();
@@ -305,6 +309,27 @@ namespace DungeonCrawler
         private static ShopStock Stock(Dictionary<string, Inventory.ItemData> pool, string itemName, int price)
         {
             return pool.TryGetValue(itemName, out var item) ? new ShopStock { item = item, price = price } : default(ShopStock);
+        }
+
+        // A standalone, permanent test structure (Entry -> circular room -> a small
+        // room, see DungeonLayout.BuildCircularRoomTest) built once at hub setup and
+        // left alone for the rest of the session -- deliberately its OWN GameObject,
+        // not dungeonRoot, so entering a real dungeon (which destroys dungeonRoot every
+        // time) never tears this down. Positioned well south of the hub's own south
+        // wall (Center.z - SquareHalf = -62) rather than inside the hub itself: the hub
+        // is a fully enclosed walled village on every side but its own north gate, so
+        // there's no way to cut a walkable path to a new room without modifying already-
+        // tested hub wall geometry. F6 (see DebugTools) teleports there directly instead.
+        private void BuildCircularRoomTest()
+        {
+            // DungeonLayout builds every wall/floor via an ABSOLUTE world-space
+            // transform.position write (see that method's own comment) -- moving this
+            // GameObject's own transform has no effect on the geometry, so the offset
+            // has to be handed IN and baked into the coordinates DungeonLayout itself
+            // computes, not applied after the fact.
+            var testGO = new GameObject("CircularRoomTest");
+            var layout = testGO.AddComponent<DungeonLayout>();
+            circularRoomTestEntry = layout.BuildCircularRoomTest(new Vector3(0, 0, -110f), DungeonTheme.Abyss);
         }
 
         // Shared setup every dungeon needs: tear down whatever was here before, build fresh
