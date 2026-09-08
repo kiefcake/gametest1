@@ -189,7 +189,23 @@ namespace DungeonCrawler.World
             west = a == Dir.West || b == Dir.West;
         }
 
-        private static Vector3 CellToWorld(Vector2Int cell, float pitch) => new Vector3(cell.x * pitch, 0, cell.y * pitch);
+        // The hub's own north perimeter wall sits at world Z=-18 (see HubLayout's
+        // Center=(0,0,-40) and SquareHalf=22), with its dungeon gate cut through the
+        // wall around Z=-23 -- dungeon geometry used to always grow due north from a
+        // literal world-origin Entry point, which happened to clear that by luck (the
+        // spine was a fixed straight line, and the old, smaller room half-width). Once
+        // the spine could bend in ANY direction -- including back toward negative Z --
+        // and rooms got bigger on top of that, dungeon geometry could and did grow
+        // straight into the hub's own walls, reported as "dungeons spawn too close to
+        // the spawn area" with hub/dungeon geometry visibly clipping through each other
+        // (see also the South-excluding `allowed` filters on d1/d2 in Build(), which cap
+        // how far any generation can drift back toward the hub even before this offset
+        // is applied). This constant shifts the dungeon's entire coordinate space north
+        // by a fixed buffer so even the worst-case southward drift the d1/d2 filters
+        // still allow (2 hops, 114 units) leaves a comfortable margin north of Z=-18.
+        private const float DungeonOriginZOffset = 150f;
+
+        private static Vector3 CellToWorld(Vector2Int cell, float pitch) => new Vector3(cell.x * pitch, 0, cell.y * pitch + DungeonOriginZOffset);
 
         private readonly struct RoomInfo
         {
@@ -309,11 +325,17 @@ namespace DungeonCrawler.World
             Vector2Int entryCell = Vector2Int.zero;
             var occupied = new HashSet<Vector2Int> { entryCell };
 
-            Dir d1 = PickPathDir(entryCell, null, occupied, d => true);
+            // South is excluded from the first two hops specifically (not the whole
+            // path) so the spine can never immediately double back toward the hub sitting
+            // just south of Entry -- see DungeonOriginZOffset's comment for the exact
+            // worst-case math this bounds. d3/d4 can still go south (that's how the
+            // spine actually bends "backward" for real variety), just not enough hops in
+            // a row to threaten the hub given the offset already applied.
+            Dir d1 = PickPathDir(entryCell, null, occupied, d => d != Dir.South);
             Vector2Int combatCell = entryCell + CellOffset(d1);
             occupied.Add(combatCell);
 
-            Dir d2 = PickPathDir(combatCell, d1, occupied, d => d != Dir.East); // keep Combat2's west free
+            Dir d2 = PickPathDir(combatCell, d1, occupied, d => d != Dir.East && d != Dir.South); // keep Combat2's west free; keep the spine climbing away from the hub for one more hop
             Vector2Int combat2Cell = combatCell + CellOffset(d2);
             occupied.Add(combat2Cell);
 
