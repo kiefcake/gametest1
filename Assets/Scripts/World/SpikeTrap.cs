@@ -33,9 +33,14 @@ namespace DungeonCrawler.World
 
         // Called right after the model is instantiated -- spikeParts are the 5
         // "spike_0".."spike_4" children found by name (see DungeonLayout.BuildSpikeTrap).
+        // Tolerates a null entry (a stale mesh/lookup mismatch) by dropping it rather
+        // than throwing -- the trap still animates whatever spikes it did find.
         public void Init(Transform[] spikeParts)
         {
-            spikes = spikeParts;
+            var found = new List<Transform>(spikeParts.Length);
+            foreach (var s in spikeParts) if (s != null) found.Add(s);
+            spikes = found.ToArray();
+
             retractedY = new float[spikes.Length];
             for (int i = 0; i < spikes.Length; i++) retractedY[i] = spikes[i].localPosition.y;
             phaseTimer = retractedDuration * Random.Range(0.5f, 1f); // desyncs multiple traps in the same room

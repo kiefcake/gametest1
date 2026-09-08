@@ -54,7 +54,7 @@ namespace DungeonCrawler.Visuals
 
                 foreach (var memberName in fields[4].Split(','))
                 {
-                    var member = modelRoot.Find(memberName);
+                    var member = FindRecursive(modelRoot, memberName);
                     if (member == null) continue; // tolerate a stale sidecar rather than throwing
                     member.SetParent(pivotGO.transform, false);
                     member.localPosition = Vector3.zero;
@@ -65,6 +65,29 @@ namespace DungeonCrawler.Visuals
             }
 
             return pivots;
+        }
+
+        // Transform.Find(name) only searches DIRECT children -- Unity's OBJ importer
+        // does not guarantee every "o <name>" group lands as a direct child of the
+        // imported root (it can nest them under an intermediate node), so a bare Find
+        // silently returns null for anything past the first level. That was a real,
+        // shipped bug here: every rigged limb piece failed this lookup, was never
+        // reparented onto its pivot, and stayed floating at its raw pivot-relative
+        // position near the model's own origin -- looking detached/mangled, and never
+        // animating at all since the actual geometry was never attached to the pivot the
+        // animator rotates. A full recursive search fixes it regardless of how deep the
+        // importer actually nests things. Public because it's the correct way to look up
+        // ANY named part of an imported OBJ model by name, not just rigged ones -- see
+        // DungeonLayout.BuildSpikeTrap, which had the exact same bug for the same reason.
+        public static Transform FindRecursive(Transform root, string name)
+        {
+            foreach (Transform child in root)
+            {
+                if (child.name == name) return child;
+                var found = FindRecursive(child, name);
+                if (found != null) return found;
+            }
+            return null;
         }
 
         // Creature-limb convenience wrapper over LoadPivots -- maps rig group names

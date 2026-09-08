@@ -3,6 +3,7 @@ using UnityEngine;
 using DungeonCrawler.Classes;
 using DungeonCrawler.Core;
 using DungeonCrawler.UI;
+using DungeonCrawler.Visuals;
 
 namespace DungeonCrawler.World
 {
@@ -811,8 +812,14 @@ namespace DungeonCrawler.World
             trapGO.name = "SpikeTrap";
             trapGO.transform.position = pos;
 
+            // Transform.Find only searches direct children -- Unity's OBJ importer
+            // doesn't guarantee every "o <name>" group lands as one, so this needs the
+            // same recursive lookup ImportedMeshRig uses for rigged limb pieces (a
+            // shallow Find here was a real, shipped bug for exactly the same reason:
+            // every spike silently failed to resolve, leaving SpikeTrap.Init to null-ref
+            // on the very first entry).
             var spikes = new Transform[5];
-            for (int i = 0; i < 5; i++) spikes[i] = trapGO.transform.Find($"spike_{i}");
+            for (int i = 0; i < 5; i++) spikes[i] = ImportedMeshRig.FindRecursive(trapGO.transform, $"spike_{i}");
 
             var col = trapGO.AddComponent<BoxCollider>();
             col.isTrigger = true;
