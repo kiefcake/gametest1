@@ -1,0 +1,4 @@
+arm_L -0.18947 1.23234 0.15691 arm_upper_L,arm_lower_L,arm_joint_L
+arm_R 0.15511 1.23234 0.15691 arm_upper_R,arm_lower_R,arm_joint_R
+leg_L -0.10786 0.70640 0.13877 leg_upper_L,leg_lower_L,leg_joint_L
+leg_R 0.07350 0.70640 0.13877 leg_upper_R,leg_lower_R,leg_joint_R

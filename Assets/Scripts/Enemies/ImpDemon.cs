@@ -63,6 +63,7 @@ namespace DungeonCrawler.Enemies
             spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.05f;
             spriteAnimator.bobSpeed = 3.5f;
+            AttachImportedMeshRig(modelGO.transform, ImpModelResourcePath);
         }
 
         // Call this right after AddComponent<ImpDemon>() to actually get the spiked variant

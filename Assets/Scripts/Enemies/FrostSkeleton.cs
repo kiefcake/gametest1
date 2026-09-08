@@ -59,6 +59,7 @@ namespace DungeonCrawler.Enemies
             spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.05f;
             spriteAnimator.bobSpeed = 3f;
+            AttachImportedMeshRig(modelGO.transform, "Models/Enemies/frost_skeleton");
         }
 
         protected override void Attack()

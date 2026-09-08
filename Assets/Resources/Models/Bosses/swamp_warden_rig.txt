@@ -1,0 +1,4 @@
+arm_L -0.86937 2.92402 0.13990 arm_upper_L,arm_lower_L,arm_joint_L,forearm_mass_L,bracer_L,hand_L,claw_L_0,claw_L_1,claw_L_2
+arm_R 0.86937 2.92402 0.13990 arm_upper_R,arm_lower_R,arm_joint_R,forearm_mass_R,bracer_R,hand_R,claw_R_0,claw_R_1,claw_R_2
+leg_L -0.38639 1.61031 0.12058 leg_upper_L,leg_lower_L,leg_joint_L
+leg_R 0.38639 1.61031 0.12058 leg_upper_R,leg_lower_R,leg_joint_R

@@ -619,6 +619,9 @@ namespace DungeonCrawler.World
             if (hazardous)
             {
                 BuildThemedHazardCluster(center + new Vector3(6f, 0, 4f), center + new Vector3(-8f, 0, -3f), center + new Vector3(5f, 0, -8f));
+                // A genuinely new hazard, not a reskin of the pool family -- rolled
+                // independently, in a free corner none of the above touches.
+                if (Random.value < 0.5f) BuildSpikeTrap(center + new Vector3(-6f, 0, 8f));
             }
 
             // A raised platform in the room's south-east corner, up a ramp -- a ranged
@@ -793,6 +796,32 @@ namespace DungeonCrawler.World
         // missing rather than falling back to a primitive -- the pool still works fine
         // (still damages, still glows) without a rim, unlike a torch or pillar whose
         // absence would leave a much bigger visual hole.
+        // A genuinely new hazard type -- not a reskin of the lava/ice/poison/curse pool
+        // family. Retracted (safe) most of the time, rises on its own timer and damages
+        // anything standing on it while extended (see SpikeTrap.cs), rewarding good
+        // timing over route-planning instead of just walking around a static pool.
+        // Skips silently if the resource is missing -- purely additive, same as the
+        // hazard basin rim above.
+        private void BuildSpikeTrap(Vector3 pos)
+        {
+            var model = Resources.Load<GameObject>("Models/Props/spike_trap");
+            if (model == null) return;
+
+            var trapGO = Instantiate(model, transform);
+            trapGO.name = "SpikeTrap";
+            trapGO.transform.position = pos;
+
+            var spikes = new Transform[5];
+            for (int i = 0; i < 5; i++) spikes[i] = trapGO.transform.Find($"spike_{i}");
+
+            var col = trapGO.AddComponent<BoxCollider>();
+            col.isTrigger = true;
+            col.center = new Vector3(0, 0.2f, 0);
+            col.size = new Vector3(1f, 0.4f, 1f);
+
+            trapGO.AddComponent<SpikeTrap>().Init(spikes);
+        }
+
         private void BuildHazardBasinRim(Vector3 pos, float radius)
         {
             var model = Resources.Load<GameObject>("Models/Props/hazard_basin");

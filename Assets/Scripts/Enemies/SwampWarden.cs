@@ -89,6 +89,7 @@ namespace DungeonCrawler.Enemies
             spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.06f;
             spriteAnimator.bobSpeed = 1.3f;
+            AttachImportedMeshRig(modelGO.transform, "Models/Bosses/swamp_warden");
         }
 
         protected override void Update()

@@ -42,6 +42,32 @@ namespace DungeonCrawler.World
 
         private void BuildVisual()
         {
+            // Real mesh (see Models/Props/chest_common) with a lid that actually hinges
+            // around its own back-bottom edge instead of spinning around a cube's own
+            // center -- the same pivot-relative export scheme the creature roster's
+            // limb rigging uses (see ImportedMeshRig's doc comment), applied to a prop
+            // for the first time. Falls back to the original 2-cube build if the
+            // resource or its rig sidecar is ever missing.
+            var model = Resources.Load<GameObject>("Models/Props/chest_common");
+            if (model != null)
+            {
+                var modelGO = Instantiate(model, transform);
+                modelGO.name = "ChestModel";
+                modelGO.transform.localPosition = Vector3.zero;
+                modelGO.transform.localRotation = Quaternion.identity;
+
+                var rigData = Resources.Load<TextAsset>("Models/Props/chest_common_rig");
+                var pivots = ImportedMeshRig.LoadPivots(modelGO.transform, rigData);
+                if (pivots.TryGetValue("lid", out var lidPivot))
+                {
+                    lidVisual = lidPivot.gameObject;
+                    return;
+                }
+                // Rig sidecar missing/stale -- the chest still displays fine, it just
+                // won't visibly open (Open() below already null-checks lidVisual).
+                return;
+            }
+
             var baseGO = GameObject.CreatePrimitive(PrimitiveType.Cube);
             baseGO.name = "ChestBase";
             baseGO.transform.SetParent(transform);

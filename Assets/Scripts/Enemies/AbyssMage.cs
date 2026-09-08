@@ -71,6 +71,11 @@ namespace DungeonCrawler.Enemies
             spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.08f;
             spriteAnimator.bobSpeed = 2.2f;
+            // The real mesh has rigged sleeves even though the primitive FloatingCaster
+            // fallback above has no pivots to animate at all -- a real sleeve-swing while
+            // hovering/moving is a fair bonus over the lower-fidelity fallback, not a
+            // mismatch to worry about.
+            AttachImportedMeshRig(modelGO.transform, "Models/Enemies/abyss_mage");
         }
 
         protected override void Update()

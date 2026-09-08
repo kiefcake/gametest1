@@ -79,6 +79,7 @@ namespace DungeonCrawler.Enemies
             spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.07f;
             spriteAnimator.bobSpeed = 1.6f;
+            AttachImportedMeshRig(modelGO.transform, "Models/Bosses/frost_lich");
         }
 
         protected override void Update()

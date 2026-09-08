@@ -1,41 +1,30 @@
-# Flat matte, no maps -- matches the project's no-texture style.
+newmtl skin_pale_green
+Kd 0.5490 1.0000 0.5490
+Ks 0.2000 0.2000 0.2000
+Ns 30
+d 1.0000
 
-newmtl imp_skin
-Ka 0.000 0.000 0.000
-Kd 0.620 0.210 0.150
-Ks 0.150 0.150 0.150
-Ns 24.0
-d 1.0
-illum 2
+newmtl accent_green
+Kd 0.3020 0.6000 0.3020
+Ks 0.2000 0.2000 0.2000
+Ns 30
+d 1.0000
 
-newmtl imp_belly
-Ka 0.000 0.000 0.000
-Kd 0.720 0.420 0.320
-Ks 0.150 0.150 0.150
-Ns 24.0
-d 1.0
-illum 2
+newmtl void
+Kd 0.0784 0.0863 0.1216
+Ks 0.2000 0.2000 0.2000
+Ns 10
+d 1.0000
 
-newmtl horn
-Ka 0.000 0.000 0.000
-Kd 0.150 0.050 0.050
-Ks 0.150 0.150 0.150
-Ns 24.0
-d 1.0
-illum 2
+newmtl eye_glow
+Kd 0.9493 1.0000 0.3617
+Ks 0.2000 0.2000 0.2000
+Ns 100
+d 1.0000
 
 newmtl claw
-Ka 0.000 0.000 0.000
-Kd 0.120 0.090 0.090
-Ks 0.150 0.150 0.150
-Ns 24.0
-d 1.0
-illum 2
+Kd 0.7490 0.9020 0.7490
+Ks 0.2000 0.2000 0.2000
+Ns 80
+d 1.0000
 
-newmtl eye
-Ka 0.000 0.000 0.000
-Kd 0.950 0.850 0.200
-Ks 0.150 0.150 0.150
-Ns 24.0
-d 1.0
-illum 2

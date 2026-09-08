@@ -71,6 +71,7 @@ namespace DungeonCrawler.Enemies
             spriteAnimator = modelGO.AddComponent<SpriteAnimator>();
             spriteAnimator.bobHeight = 0.05f;
             spriteAnimator.bobSpeed = 5f;
+            AttachImportedMeshRig(modelGO.transform, "Models/Enemies/imp_scurrier");
         }
 
         protected override void Update()
