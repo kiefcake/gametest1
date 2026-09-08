@@ -34,7 +34,7 @@ namespace DungeonCrawler.Enemies
         // from the Abyss imps' warm tones.
         protected override void AttachVisual()
         {
-            var model = Resources.Load<GameObject>("Models/Enemies/frost_skeleton");
+            var model = Resources.Load<GameObject>("Models/Enemies/frost_skeleton_body");
             if (model == null)
             {
                 var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec {

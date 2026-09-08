@@ -849,28 +849,27 @@ namespace DungeonCrawler.World
         // hazard basin rim above.
         private void BuildSpikeTrap(Vector3 pos)
         {
-            var model = Resources.Load<GameObject>("Models/Props/spike_trap");
+            // The 5 spike cones live in their own separate model file
+            // (Models/Props/spike_trap_spikes), not findable as named children inside
+            // the base-plate file -- see ImportedMeshRig's doc comment for why Unity's
+            // OBJ importer makes that the only way to get an independently-movable
+            // sub-part at all.
+            var model = Resources.Load<GameObject>("Models/Props/spike_trap_body");
             if (model == null) return;
 
             var trapGO = Instantiate(model, transform);
             trapGO.name = "SpikeTrap";
             trapGO.transform.position = pos;
 
-            // Transform.Find only searches direct children -- Unity's OBJ importer
-            // doesn't guarantee every "o <name>" group lands as one, so this needs the
-            // same recursive lookup ImportedMeshRig uses for rigged limb pieces (a
-            // shallow Find here was a real, shipped bug for exactly the same reason:
-            // every spike silently failed to resolve, leaving SpikeTrap.Init to null-ref
-            // on the very first entry).
-            var spikes = new Transform[5];
-            for (int i = 0; i < 5; i++) spikes[i] = ImportedMeshRig.FindRecursive(trapGO.transform, $"spike_{i}");
+            var groups = ImportedMeshRig.LoadRigGroups(trapGO.transform, "Models/Props/spike_trap");
+            groups.TryGetValue("spikes", out var spikesRoot);
 
             var col = trapGO.AddComponent<BoxCollider>();
             col.isTrigger = true;
             col.center = new Vector3(0, 0.2f, 0);
             col.size = new Vector3(1f, 0.4f, 1f);
 
-            trapGO.AddComponent<SpikeTrap>().Init(spikes);
+            trapGO.AddComponent<SpikeTrap>().Init(spikesRoot);
         }
 
         private void BuildHazardBasinRim(Vector3 pos, float radius)

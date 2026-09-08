@@ -4,93 +4,68 @@ using UnityEngine;
 
 namespace DungeonCrawler.Visuals
 {
-    // The actual fix for "no per-limb rigging" (and, more generally, "no way to rotate
-    // any sub-part") on real imported meshes, not just the root-level sway SpriteAnimator
-    // got earlier. A real mesh's parts all come in at identity local transform with their
-    // vertices baked in absolute world space -- OBJ has no hierarchy/pivot concept at
-    // all, so rotating one of those parts directly would spin it around the WHOLE
-    // model's origin, not its own joint/hinge.
+    // The actual fix for "no per-limb rigging" (and, more generally, "no way to move a
+    // sub-part independently") on real imported meshes.
     //
-    // The export pipeline (export_creatures.mjs, export_props.mjs) can tag any mesh with
-    // a rig group name and a pivot point (see creatures.js's limbPair/clawedHand for
-    // creature limbs, props.js's chestCommon for a hinge), bakes that mesh's vertices
-    // RELATIVE TO the pivot instead of the whole model's space, and writes a
-    // "<name>_rig.txt" sidecar recording each group's pivot position and member mesh
-    // names. LoadPivots reads that sidecar, builds one empty pivot GameObject per group
-    // positioned exactly there, and reparents the group's mesh pieces under it at local
-    // zero -- since their geometry is already pivot-relative, that exactly reproduces
-    // the original static pose, but now rotating the pivot transform correctly pivots
-    // around the joint/hinge instead of the model's own origin.
+    // What did NOT work, tried first: exporting a rigged part's vertices relative to a
+    // pivot point WITHIN the same combined .obj as the rest of the model, then finding
+    // it by name (via Transform.Find, then a recursive search once the shallow Find
+    // turned out to be the wrong culprit) and reparenting it onto a runtime pivot
+    // GameObject. Confirmed by direct testing (dumping the actual imported hierarchy to
+    // a file) that this can't work at all: Unity's OBJ importer, regardless of the
+    // `preserveHierarchy` setting, flattens every named "o"/"g" group within ONE file
+    // into a single combined mesh with zero separate child Transforms -- there is
+    // nothing to find or reparent, because the sub-part was never a distinct
+    // GameObject to begin with.
+    //
+    // What actually works: give each independently-movable part its OWN separate
+    // OBJ+MTL file (see export_creatures.mjs/export_props.mjs's own comments). Unity
+    // then gives each one its own real, separate, independently-Instantiate-able
+    // GameObject purely by virtue of being a separate asset -- no importer hierarchy
+    // behavior to depend on at all. A creature/prop with rigged parts exports as
+    // "<id>_body.obj" (everything static) plus one "<id>_<group>.obj" per rig group,
+    // with a "<id>_rig.txt" sidecar recording each group's resolved pivot position.
     public static class ImportedMeshRig
     {
-        // Returns every rig group found in rigData as {groupName -> pivot transform},
-        // already reparented and positioned -- an empty dictionary if rigData is null or
-        // has no groups (true for creatures/props with nothing rigged: snakes, oozes,
-        // the training dummy, most props). Callers own what to DO with each pivot --
-        // Attach() below wires creature limb pivots into ProceduralLimbAnimator; a chest
-        // can just grab pivots["lid"] and rotate it directly on open.
-        public static Dictionary<string, Transform> LoadPivots(Transform modelRoot, TextAsset rigData)
+        // Loads and instantiates every rig group listed in "<baseResourcePath>_rig.txt"
+        // as its own separate model, parented under modelRoot and positioned at its own
+        // pivot -- callers rotate/translate the returned Transform directly, no further
+        // setup needed. Returns an empty dictionary if there's no sidecar (true for
+        // most creatures/props: snakes, oozes, the dummy, and every non-rigged prop) or
+        // if a listed group's own model file is missing (tolerated, not thrown, the
+        // same way a stale/missing resource is handled everywhere else in this file).
+        public static Dictionary<string, Transform> LoadRigGroups(Transform modelRoot, string baseResourcePath)
         {
-            var pivots = new Dictionary<string, Transform>();
-            if (rigData == null) return pivots;
+            var groups = new Dictionary<string, Transform>();
+            var rigData = Resources.Load<TextAsset>(baseResourcePath + "_rig");
+            if (rigData == null) return groups;
 
             foreach (var rawLine in rigData.text.Split('\n'))
             {
                 var line = rawLine.Trim();
                 if (line.Length == 0) continue;
                 var fields = line.Split(' ');
-                if (fields.Length < 5) continue;
+                if (fields.Length < 4) continue;
 
                 string groupName = fields[0];
                 if (!float.TryParse(fields[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float px)) continue;
                 if (!float.TryParse(fields[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float py)) continue;
                 if (!float.TryParse(fields[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float pz)) continue;
-                var pivotPos = new Vector3(px, py, pz);
 
-                var pivotGO = new GameObject("Rig_" + groupName);
-                pivotGO.transform.SetParent(modelRoot, false);
-                pivotGO.transform.localPosition = pivotPos;
-                pivotGO.transform.localRotation = Quaternion.identity;
+                var groupModel = Resources.Load<GameObject>(baseResourcePath + "_" + groupName);
+                if (groupModel == null) continue;
 
-                foreach (var memberName in fields[4].Split(','))
-                {
-                    var member = FindRecursive(modelRoot, memberName);
-                    if (member == null) continue; // tolerate a stale sidecar rather than throwing
-                    member.SetParent(pivotGO.transform, false);
-                    member.localPosition = Vector3.zero;
-                    member.localRotation = Quaternion.identity;
-                }
-
-                pivots[groupName] = pivotGO.transform;
+                var groupGO = Object.Instantiate(groupModel, modelRoot);
+                groupGO.name = groupName;
+                groupGO.transform.localPosition = new Vector3(px, py, pz);
+                groupGO.transform.localRotation = Quaternion.identity;
+                groups[groupName] = groupGO.transform;
             }
 
-            return pivots;
+            return groups;
         }
 
-        // Transform.Find(name) only searches DIRECT children -- Unity's OBJ importer
-        // does not guarantee every "o <name>" group lands as a direct child of the
-        // imported root (it can nest them under an intermediate node), so a bare Find
-        // silently returns null for anything past the first level. That was a real,
-        // shipped bug here: every rigged limb piece failed this lookup, was never
-        // reparented onto its pivot, and stayed floating at its raw pivot-relative
-        // position near the model's own origin -- looking detached/mangled, and never
-        // animating at all since the actual geometry was never attached to the pivot the
-        // animator rotates. A full recursive search fixes it regardless of how deep the
-        // importer actually nests things. Public because it's the correct way to look up
-        // ANY named part of an imported OBJ model by name, not just rigged ones -- see
-        // DungeonLayout.BuildSpikeTrap, which had the exact same bug for the same reason.
-        public static Transform FindRecursive(Transform root, string name)
-        {
-            foreach (Transform child in root)
-            {
-                if (child.name == name) return child;
-                var found = FindRecursive(child, name);
-                if (found != null) return found;
-            }
-            return null;
-        }
-
-        // Creature-limb convenience wrapper over LoadPivots -- maps rig group names
+        // Creature-limb convenience wrapper over LoadRigGroups -- maps rig group names
         // (always "<prefix>_<L|R>", "leg" -> hip, anything else ("arm"/"sleeve") ->
         // shoulder) into ProceduralLimbAnimator's 4 named fields and wires it up. This is
         // the exact same walk-cycle swing (movement-triggered, phase-desynced, damped
@@ -101,14 +76,14 @@ namespace DungeonCrawler.Visuals
         // moveTracker should be the ENEMY's own root transform, not modelRoot -- see
         // ProceduralLimbAnimator's own doc comment on why (modelRoot gets bobbed
         // vertically every frame by SpriteAnimator, which would misread as walking).
-        // Returns null if rigData is null or has no limb-shaped groups.
-        public static ProceduralLimbAnimator Attach(Transform modelRoot, TextAsset rigData, Transform moveTracker)
+        // Returns null if there's no rig sidecar or no limb-shaped groups in it.
+        public static ProceduralLimbAnimator Attach(Transform modelRoot, string baseResourcePath, Transform moveTracker)
         {
-            var pivots = LoadPivots(modelRoot, rigData);
-            if (pivots.Count == 0) return null;
+            var groups = LoadRigGroups(modelRoot, baseResourcePath);
+            if (groups.Count == 0) return null;
 
             Transform leftHip = null, rightHip = null, leftShoulder = null, rightShoulder = null;
-            foreach (var kv in pivots)
+            foreach (var kv in groups)
             {
                 var parts = kv.Key.Split('_');
                 if (parts.Length != 2) continue;

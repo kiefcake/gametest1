@@ -1,4 +1,4 @@
-arm_L -0.16866 1.41518 0.06678 arm_upper_L,arm_lower_L,arm_joint_L,hand_L,claw_L_0,claw_L_1,claw_L_2
-arm_R 0.16866 1.41518 0.06678 arm_upper_R,arm_lower_R,arm_joint_R,hand_R,claw_R_0,claw_R_1,claw_R_2
-leg_L -0.11596 0.83541 -0.21783 leg_upper_L,leg_lower_L,leg_joint_L
-leg_R 0.11596 0.83541 -0.21783 leg_upper_R,leg_lower_R,leg_joint_R
+arm_L -0.16866 1.41518 0.06678
+arm_R 0.16866 1.41518 0.06678
+leg_L -0.11596 0.83541 -0.21783
+leg_R 0.11596 0.83541 -0.21783

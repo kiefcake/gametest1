@@ -55,7 +55,7 @@ namespace DungeonCrawler.Enemies
         // SwampWarden's hulking Humanoid silhouette.
         protected override void AttachVisual()
         {
-            var model = Resources.Load<GameObject>("Models/Bosses/frost_lich");
+            var model = Resources.Load<GameObject>("Models/Bosses/frost_lich_body");
             if (model == null)
             {
                 var built = ProceduralMonster.FloatingCaster(transform, new ProceduralMonster.FloatingSpec {

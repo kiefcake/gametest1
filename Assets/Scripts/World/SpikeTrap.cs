@@ -10,9 +10,10 @@ namespace DungeonCrawler.World
     // this rewards good timing over route-planning: the tell IS the spike mesh's own
     // rising/falling animation.
     //
-    // The 5 spike parts are driven by pure Y-axis TRANSLATION, not rotation -- unlike
-    // the creature roster's limb rigging, this needed none of the pivot-relative export
-    // machinery (see ImportedMeshRig's own doc comment for why that exists at all):
+    // All 5 spike cones live in ONE model file (Models/Props/spike_trap_spikes, its own
+    // separate asset from the base plate -- see ImportedMeshRig.LoadRigGroups) and move
+    // as a single rigid group via pure Y-axis TRANSLATION, not rotation -- unlike the
+    // creature roster's limb rigging, this needed no pivot-relative export at all:
     // translating a child's local position works correctly regardless of where its
     // geometry was baked, since there's no pivot to get wrong in the first place.
     public class SpikeTrap : MonoBehaviour
@@ -24,31 +25,26 @@ namespace DungeonCrawler.World
         public float tickInterval = 0.4f;
         public float extendedHeight = 0.22f;
 
-        private Transform[] spikes;
-        private float[] retractedY;
+        private Transform spikes;
+        private float retractedY;
         private bool spikesUp;
         private float phaseTimer;
         private float riseProgress; // 0 = fully retracted, 1 = fully extended
         private readonly Dictionary<GameObject, float> nextTickAt = new Dictionary<GameObject, float>();
 
-        // Called right after the model is instantiated -- spikeParts are the 5
-        // "spike_0".."spike_4" children found by name (see DungeonLayout.BuildSpikeTrap).
-        // Tolerates a null entry (a stale mesh/lookup mismatch) by dropping it rather
-        // than throwing -- the trap still animates whatever spikes it did find.
-        public void Init(Transform[] spikeParts)
+        // Called right after the model is instantiated -- spikesRoot is the whole
+        // "spikes" rig group (see DungeonLayout.BuildSpikeTrap). Tolerates null (a
+        // missing/stale group file) by just never animating rather than throwing.
+        public void Init(Transform spikesRoot)
         {
-            var found = new List<Transform>(spikeParts.Length);
-            foreach (var s in spikeParts) if (s != null) found.Add(s);
-            spikes = found.ToArray();
-
-            retractedY = new float[spikes.Length];
-            for (int i = 0; i < spikes.Length; i++) retractedY[i] = spikes[i].localPosition.y;
+            spikes = spikesRoot;
+            if (spikes != null) retractedY = spikes.localPosition.y;
             phaseTimer = retractedDuration * Random.Range(0.5f, 1f); // desyncs multiple traps in the same room
         }
 
         private void Update()
         {
-            if (spikes == null || spikes.Length == 0) return;
+            if (spikes == null) return;
 
             phaseTimer -= Time.deltaTime;
             if (phaseTimer <= 0f)
@@ -60,11 +56,8 @@ namespace DungeonCrawler.World
             float target = spikesUp ? 1f : 0f;
             riseProgress = Mathf.MoveTowards(riseProgress, target, Time.deltaTime / riseTime);
 
-            for (int i = 0; i < spikes.Length; i++)
-            {
-                var lp = spikes[i].localPosition;
-                spikes[i].localPosition = new Vector3(lp.x, retractedY[i] + riseProgress * extendedHeight, lp.z);
-            }
+            var lp = spikes.localPosition;
+            spikes.localPosition = new Vector3(lp.x, retractedY + riseProgress * extendedHeight, lp.z);
         }
 
         private void OnTriggerStay(Collider other)

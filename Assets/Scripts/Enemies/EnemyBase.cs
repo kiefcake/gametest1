@@ -136,17 +136,16 @@ namespace DungeonCrawler.Enemies
             limbAnimator.rightShoulder = built.rightShoulder;
         }
 
-        // The real-imported-mesh equivalent of AttachLimbAnimator above -- loads
-        // "<rigResourcePath>_rig.txt" (a TextAsset sidecar the export pipeline writes
-        // alongside any creature with rigged limbs; see ImportedMeshRig's own doc
-        // comment for the whole pivot-relative-export scheme) and wires it into the same
-        // ProceduralLimbAnimator walk-cycle swing the primitive path uses. Silently does
-        // nothing if the sidecar is missing -- true for creatures with no rigged limbs
-        // at all (snakes, oozes, the training dummy never get one), not an error.
+        // The real-imported-mesh equivalent of AttachLimbAnimator above -- loads each
+        // rig group listed in "<rigResourcePath>_rig.txt" as its OWN separate model (see
+        // ImportedMeshRig's own doc comment for why a single shared file can't work) and
+        // wires them into the same ProceduralLimbAnimator walk-cycle swing the primitive
+        // path uses. Silently does nothing if the sidecar is missing -- true for
+        // creatures with no rigged limbs at all (snakes, oozes, the training dummy never
+        // get one), not an error.
         protected void AttachImportedMeshRig(Transform modelRoot, string rigResourcePath)
         {
-            var rigData = Resources.Load<TextAsset>(rigResourcePath + "_rig");
-            ImportedMeshRig.Attach(modelRoot, rigData, transform);
+            ImportedMeshRig.Attach(modelRoot, rigResourcePath, transform);
         }
 
         protected virtual void OnDestroy()

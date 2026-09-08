@@ -37,7 +37,7 @@ namespace DungeonCrawler.Enemies
 
         protected override void AttachVisual()
         {
-            var model = Resources.Load<GameObject>(ImpModelResourcePath);
+            var model = Resources.Load<GameObject>(ImpModelResourcePath + "_body");
             if (model == null)
             {
                 var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec

@@ -46,7 +46,7 @@ namespace DungeonCrawler.Enemies
         // reads as hovering/channeling rather than planted like a melee brute.
         protected override void AttachVisual()
         {
-            var model = Resources.Load<GameObject>("Models/Enemies/abyss_mage");
+            var model = Resources.Load<GameObject>("Models/Enemies/abyss_mage_body");
             if (model == null)
             {
                 var built = ProceduralMonster.FloatingCaster(transform, new ProceduralMonster.FloatingSpec

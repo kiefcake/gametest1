@@ -45,7 +45,7 @@ namespace DungeonCrawler.Enemies
 
         protected override void AttachVisual()
         {
-            var model = Resources.Load<GameObject>("Models/Enemies/imp_scurrier");
+            var model = Resources.Load<GameObject>("Models/Enemies/imp_scurrier_body");
             if (model == null)
             {
                 var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec

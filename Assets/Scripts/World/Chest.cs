@@ -42,13 +42,14 @@ namespace DungeonCrawler.World
 
         private void BuildVisual()
         {
-            // Real mesh (see Models/Props/chest_common) with a lid that actually hinges
-            // around its own back-bottom edge instead of spinning around a cube's own
-            // center -- the same pivot-relative export scheme the creature roster's
-            // limb rigging uses (see ImportedMeshRig's doc comment), applied to a prop
-            // for the first time. Falls back to the original 2-cube build if the
-            // resource or its rig sidecar is ever missing.
-            var model = Resources.Load<GameObject>("Models/Props/chest_common");
+            // Real mesh (see Models/Props/chest_common_body) with a lid that actually
+            // hinges around its own back-bottom edge instead of spinning around a
+            // cube's own center -- the lid is its own separate model file
+            // (Models/Props/chest_common_lid), positioned at its own pivot by
+            // ImportedMeshRig.LoadRigGroups (see that class's doc comment for why a
+            // single shared file can't give a sub-part its own moving Transform). Falls
+            // back to the original 2-cube build if the body resource is ever missing.
+            var model = Resources.Load<GameObject>("Models/Props/chest_common_body");
             if (model != null)
             {
                 var modelGO = Instantiate(model, transform);
@@ -56,11 +57,10 @@ namespace DungeonCrawler.World
                 modelGO.transform.localPosition = Vector3.zero;
                 modelGO.transform.localRotation = Quaternion.identity;
 
-                var rigData = Resources.Load<TextAsset>("Models/Props/chest_common_rig");
-                var pivots = ImportedMeshRig.LoadPivots(modelGO.transform, rigData);
-                if (pivots.TryGetValue("lid", out var lidPivot))
+                var groups = ImportedMeshRig.LoadRigGroups(modelGO.transform, "Models/Props/chest_common");
+                if (groups.TryGetValue("lid", out var lidGroup))
                 {
-                    lidVisual = lidPivot.gameObject;
+                    lidVisual = lidGroup.gameObject;
                     return;
                 }
                 // Rig sidecar missing/stale -- the chest still displays fine, it just

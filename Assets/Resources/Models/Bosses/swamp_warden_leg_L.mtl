@@ -1,0 +1,12 @@
+newmtl hide_swamp_green
+Kd 0.3020 0.4510 0.2510
+Ks 0.2000 0.2000 0.2000
+Ns 30
+d 1.0000
+
+newmtl accent_mud_gold
+Kd 0.5490 0.4000 0.1490
+Ks 0.2000 0.2000 0.2000
+Ns 60
+d 1.0000
+

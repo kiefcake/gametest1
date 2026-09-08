@@ -1,2 +1,2 @@
-sleeve_L -0.29617 1.25798 -0.03174 sleeve_upper_L,sleeve_lower_L,sleeve_joint_L
-sleeve_R 0.14139 1.25798 -0.03174 sleeve_upper_R,sleeve_lower_R,sleeve_joint_R
+sleeve_L -0.29617 1.25798 -0.03174
+sleeve_R 0.14139 1.25798 -0.03174

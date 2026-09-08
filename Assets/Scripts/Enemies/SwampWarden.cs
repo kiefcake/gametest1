@@ -63,7 +63,7 @@ namespace DungeonCrawler.Enemies
         // ResolveSpecialAttack below) depends on visualRenderers being set here.
         protected override void AttachVisual()
         {
-            var model = Resources.Load<GameObject>("Models/Bosses/swamp_warden");
+            var model = Resources.Load<GameObject>("Models/Bosses/swamp_warden_body");
             if (model == null)
             {
                 var built = ProceduralMonster.Humanoid(transform, new ProceduralMonster.HumanoidSpec
